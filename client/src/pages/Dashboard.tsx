@@ -7,7 +7,6 @@ import { IconContext } from 'react-icons';
 import TradingChart from "@/components/TradingChart";
 import TradeHistoryTable from '@/components/TradeHistory';
 import { useCurrentPrices } from '@/hooks/walletHooks';
-import { FiBell } from 'react-icons/fi';
 import NotificationDrawer from '@/components/Notification';
 import NavBar from '@/components/NavBar';
 
@@ -46,11 +45,6 @@ const Dashboard = () => {
                 h="100vh"
                 justifyContent="center"
             >
-
-
-
-
-
                 <Box
                     width="70%"
                     left={0}

@@ -6,7 +6,7 @@ const TradingChart = () => {
   const chartRef = useRef<any | null>(null);
   const [chartDataETH, setChartDataETH] = useState<any[] | null>(null);
   const [chartDataBTC, setChartDataBTC] = useState<any[] | null>(null);
-  
+
 
   useEffect(() => {
     const fetchChartData = async () => {
@@ -78,7 +78,7 @@ const TradingChart = () => {
       width: 800,
       height: 300,
       watermark: { text: "ETH/BTC", visible: false },
-      layout: { textColor: 'white', backgroundColor: "transparent", background: { color: 'transparent' } },
+      layout: { textColor: 'white', background: { color: 'transparent' } },
       grid: {
         vertLines: {
           color: "transparent"
