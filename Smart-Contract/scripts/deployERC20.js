@@ -1,7 +1,16 @@
-const deployERC20 = async () => {
-  const ERC20 = await ethers.getContractFactory("TestERC20"); 
-  const erc20 = await ERC20.deploy("Test", "TST");
-  await erc20.deployed();
-  console.log(erc20.address); 
-};
-deployERC20();
+const hre = require("hardhat");
+
+async function main() {
+  const TradeContract = await hre.ethers.getContractFactory("TradeContract");
+  const tradeContract = await TradeContract.deploy();
+  await tradeContract.deployed();
+
+  console.log("Contract deployed to:", tradeContract.address);
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

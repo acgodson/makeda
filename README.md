@@ -27,7 +27,8 @@ Peer-2-Peer Trading Platform automated using **ATE** (Adaptive Trade Execution) 
 
 <!-- Replace the image URLs below with the actual links to your project screenshots -->
 
-![Screenshot 1](Snapshots/Screenshot%202023-06-29%20at%2014.03.58.png)
+![Test Contract](Snapshots/hardhat.png)
+![UI](Snapshots/Screenshot%202023-06-29%20at%2014.03.58.png)
 
 ## Addresses
 
@@ -39,4 +40,4 @@ Peer-2-Peer Trading Platform automated using **ATE** (Adaptive Trade Execution) 
 | m_NFT         | ERC721   | 0x4ce12d9a1C69B32C69f79Fa94A5700308D5F6782 |
 | SwapERC20     | Custom   | 0xDFE38148EF1115F2f8889A239dEEe1DC781562e1 |
 | SwapERC721    | Custom   | 0x0563E89b08953C6eC9A494b6B0acf572A9B76430 |
-| TradeContract | Custom   |                                            |
+| TradeContract | Custom   | 0x04bB38a35eAc3b7FA724b6Dde1638EC2D682Ed7F |

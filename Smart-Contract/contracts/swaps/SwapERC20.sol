@@ -99,6 +99,8 @@ contract SwapERC20 is Ownable, Pausable {
         uint256 counterPartyAmount = swap.counterPartyAmount;
         address counterParty = swap.counterParty;
         address initiator = swap.initiator;
+        
+        //transfer to fulfiller
         require(
             initiatorToken.transferFrom(
                 msg.sender,
@@ -107,6 +109,8 @@ contract SwapERC20 is Ownable, Pausable {
             ),
             "Transfer failed"
         );
+
+          //transfer to initiator
         require(
             counterPartyToken.transferFrom(
                 msg.sender,

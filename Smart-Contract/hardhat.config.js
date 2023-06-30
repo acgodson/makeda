@@ -12,12 +12,16 @@ module.exports = {
     //   },
     // },
   },
-  defaultNetwork: "horizen",
+  defaultNetwork: "zen",
   networks: {
     zen: {
       chainId: 1663,
-      url: "https://gobi-testnet.horizenlabs.io/ethv1",
-      accounts: [process.env.ACCOUNT2, process.env.ACCOUNT1, process.env.ACCOUNT3],
+      url: process.env.HORIZEN_RPC_URL,
+      accounts: [
+        process.env.ACCOUNT2,
+        process.env.ACCOUNT1,
+        process.env.ACCOUNT3,
+      ],
       gasPrice: "auto",
     },
     goerli: {

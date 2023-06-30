@@ -6,7 +6,11 @@ import "../swaps/SwapERC20.sol";
 import "../swaps/SwapERC721.sol";
 import "../swaps/CustomSwap.sol";
 
-contract TradeHelper {
+// import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+abstract contract TradeHelper {
+    // using SafeMath for uint256;
+
     enum TokenType {
         ERC20,
         ERC721,
@@ -25,11 +29,9 @@ contract TradeHelper {
         address initiator;
         address initiatorToken;
         uint256 initiatorAmount;
-        address counterParty;
         address counterPartyToken;
         uint256 counterPartyAmount;
         uint256 balance;
-        mapping(address => uint256) fulfillments;
         State state;
     }
 
@@ -37,12 +39,20 @@ contract TradeHelper {
         uint256 tradeId;
         uint256 fulfillerTradeId;
         address fulfiller;
-        TokenType tokenType;
+        uint256 tokenIndex;
         uint256 swapID;
+        uint256 fulfillerAmount;
+        uint256 traderAmount;
+    }
+
+    struct Fulfillment {
+        uint256 amount;
+        address payer;
     }
 
     mapping(uint256 => Trade) public trades; // Mapping for trades
     mapping(uint256 => PendingAction) public pendingActions; // Mapping for pending actions
+    mapping(uint256 => Fulfillment) public fulfillments; //moved outside struct
 
     uint256 public tradeCounter;
 
@@ -71,11 +81,24 @@ contract TradeHelper {
     }
 
     function transferTokens(
-        TokenType tokenType,
+        uint256 tokenIndex,
         address tokenAddress,
         address recipient,
         uint256 amount
     ) internal {
+        TokenType tokenType;
+
+        // Convert the integer tokenType to the corresponding enum value
+        if (tokenIndex == 0) {
+            tokenType = TokenType.ERC20;
+        } else if (tokenIndex == 1) {
+            tokenType = TokenType.ERC721;
+        } else if (tokenIndex == 2) {
+            tokenType = TokenType.CUSTOM;
+        } else {
+            revert("Invalid token type");
+        }
+
         if (tokenType == TokenType.ERC20) {
             require(
                 IERC20(tokenAddress).transfer(recipient, amount),
@@ -106,14 +129,9 @@ contract TradeHelper {
     ) internal view returns (uint256) {
         require(amountIn > 0, "Invalid amount");
 
-        if (exchangeRates[tokenIn] == 0 || exchangeRates[tokenOut] == 0) {
-            revert("Invalid token pair");
-        }
-
-        // Adjust the calculation by scaling the exchange rate
-        uint256 scaledAmountOut = (amountIn * exchangeRates[tokenIn]) /
+        address pairAddress = getPairAddress(tokenIn, tokenOut);
+        uint256 scaledAmountOut = (amountIn * exchangeRates[pairAddress]) /
             (10 ** 18);
-
         return scaledAmountOut;
     }
 
@@ -121,15 +139,19 @@ contract TradeHelper {
         uint256 tradeId,
         uint256 fulfillerTradeId,
         address fulfiller,
-        TokenType tokenType,
-        uint256 swapID
+        uint256 tokenIndex,
+        uint256 swapID,
+        uint256 fulfillerAmount,
+        uint256 traderAmount
     ) internal {
         pendingActions[tradeId] = PendingAction(
             tradeId,
             fulfillerTradeId,
             fulfiller,
-            tokenType,
-            swapID
+            tokenIndex,
+            swapID,
+            fulfillerAmount,
+            traderAmount
         );
     }
 
@@ -172,49 +194,41 @@ contract TradeHelper {
     }
 
     function updateTradeStates(
-        Trade storage newTrade,
-        Trade storage existingTrade,
+        Trade memory newTrade,
+        Trade memory existingTrade,
         uint256 highestCoverage,
         address sender,
         address erc20SwapAddress
     ) internal {
-        newTrade.counterParty = existingTrade.initiator;
         newTrade.balance -= (newTrade.initiatorAmount * highestCoverage) / 100;
         newTrade.state = State.BEGUN;
 
-        existingTrade.balance -=
-            (existingTrade.balance * highestCoverage) /
-            100;
-        existingTrade.fulfillments[sender] = highestCoverage;
-
-        if (existingTrade.state == State.PENDING) {
+        if (existingTrade.state != State.FINISHED) {
             existingTrade.balance -=
                 (existingTrade.balance * highestCoverage) /
                 100;
-            existingTrade.fulfillments[sender] = highestCoverage;
-            existingTrade.state = State.BEGUN;
-        } else {
-            // Existing trade was in a PARTIAL state, retain the state
-            existingTrade.fulfillments[sender] = highestCoverage;
         }
 
         // Begin the swap and retrieve the swap ID
         uint256 swapID = SwapERC20(erc20SwapAddress).begin(
             newTrade.initiator,
-            newTrade.counterParty,
+            existingTrade.initiator,
             newTrade.initiatorToken,
             newTrade.counterPartyToken,
             (newTrade.initiatorAmount * highestCoverage) / 100,
             (newTrade.counterPartyAmount * highestCoverage) / 100
         );
 
-        // Create pending action with the retrieved swap ID
+        //update fulfiller only when counterparty has completed swap
+        // Create pending action with the retrieved swap ID (erc20)
         createPendingAction(
             newTrade.id,
             existingTrade.id,
             sender,
-            TokenType.ERC20,
-            swapID
+            0,
+            swapID,
+            (newTrade.initiatorAmount * highestCoverage) / 100,
+            (newTrade.counterPartyAmount * highestCoverage) / 100
         );
     }
 }
