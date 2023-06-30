@@ -2,15 +2,46 @@
 
 pragma solidity ^0.8.0;
 
-import "./helpers/TradeHelper.sol";
+import "./TradeHelper.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract TradeContract is TradeHelper, Ownable {
+contract TradeContract is TradeHelper {
     mapping(uint256 => address) public swapContracts; // Mapping for swap contracts
 
-    constructor(address erc20SwapAddress, address erc721SwapAddress) {
-        swapContracts[uint256(TokenType.ERC20)] = erc20SwapAddress;
-        swapContracts[uint256(TokenType.ERC721)] = erc721SwapAddress;
+    Counters.Counter private instanceId;
+
+    struct Swap {
+        uint256 id;
+        address initiator;
+        address counterParty;
+        address initiatorToken;
+        address counterPartyToken;
+        uint256 initiatorAmount;
+        uint256 counterPartyAmount;
+        bool initiated;
+        bool completed;
+    }
+
+    mapping(uint256 => Swap) public swaps;
+    mapping(address => uint256[]) private swapIdsByAddress;
+
+    event SwapBegun(
+        uint256 indexed id,
+        address indexed initiator,
+        address indexed counterParty,
+        address initiatorToken,
+        address counterPartyToken,
+        uint256 initiatorAmount,
+        uint256 counterPartyAmount
+    );
+    event SwapCompleted(uint256 indexed id);
+
+    modifier onlyCounterParty(uint256 id) {
+        require(swaps[id].counterParty == msg.sender, "Unauthorized");
+        require(swaps[id].initiated, "Swap not initiated");
+        require(!swaps[id].completed, "Swap already completed");
+        _;
     }
 
     function submitTradeOrder(
@@ -20,6 +51,14 @@ contract TradeContract is TradeHelper, Ownable {
         address counterPartyToken
     ) external {
         require(traderAmount > 0, "Invalid amount");
+
+        // Add a revert statement to check if a valid token type was given
+        require(
+            tokenType == TokenType.ERC20 ||
+                tokenType == TokenType.ERC721 ||
+                tokenType == TokenType.CUSTOM,
+            "Invalid token type"
+        );
 
         // Transfer traderToken to contract
         transferTokens(tokenType, traderToken, address(this), traderAmount);
@@ -59,41 +98,21 @@ contract TradeContract is TradeHelper, Ownable {
             selectedFulfillerIndex != 0 // Check if there is a valid match
         ) {
             Trade storage existingTrade = trades[selectedFulfillerIndex];
+            address selectedFulfiller = existingTrade.initiator;
 
-            address selectedFulfiller = existingTrade.initiator; // Assign value to selectedFulfiller
-
-            newTrade.counterParty = selectedFulfiller;
-            newTrade.balance -= (traderAmount * highestCoverage) / 100;
-            newTrade.state = State.BEGUN;
-
-            existingTrade.balance -=
-                (existingTrade.balance * highestCoverage) /
-                100;
-            existingTrade.fulfillments[msg.sender] = highestCoverage;
-            if (existingTrade.state == State.PENDING) {
-                existingTrade.balance -=
-                    (existingTrade.balance * highestCoverage) /
-                    100;
-                existingTrade.fulfillments[msg.sender] = highestCoverage;
-                existingTrade.state = State.BEGUN;
-            } else {
-                // Existing trade was in a PARTIAL state, retain the state
-                existingTrade.fulfillments[msg.sender] = highestCoverage;
-            }
+            // Update the trade states and balances
+            updateTradeStates(
+                newTrade,
+                existingTrade,
+                highestCoverage,
+                msg.sender,
+                swapContracts[uint256(TokenType.ERC20)] //we are testing with erc20 swap, in production use if to find token type and appropraite address
+            );
 
             emit TradeOrderSubmitted(
                 tradeCounter,
                 msg.sender,
                 selectedFulfiller
-            );
-
-            // Create pending action for fulfiller
-            createPendingAction(
-                tradeCounter,
-                selectedFulfillerIndex,
-                selectedFulfiller,
-                tokenType,
-                highestCoverage
             );
 
             // Find the next best match only if there is a remaining balance
@@ -122,6 +141,7 @@ contract TradeContract is TradeHelper, Ownable {
 
         tradeCounter++;
     }
+
 
     function completeSwap(uint256 pendingActionId) external {
         PendingAction storage pendingAction = pendingActions[pendingActionId];
@@ -157,11 +177,19 @@ contract TradeContract is TradeHelper, Ownable {
         emit SwapCompleted(pendingAction.tradeId, msg.sender);
     }
 
+    function getCounterPartyAmount(
+        address traderToken,
+        address counterPartyToken,
+        uint256 traderAmount
+    ) external view returns (uint256) {
+        return getAmounts(traderToken, counterPartyToken, traderAmount);
+    }
+
     function updateExchangeRate(
         address tokenA,
         address tokenB,
         uint256 rate
-    ) external onlyOwner {
+    ) external {
         setExchangeRate(tokenA, tokenB, rate);
     }
 

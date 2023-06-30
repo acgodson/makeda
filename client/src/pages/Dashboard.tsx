@@ -9,30 +9,160 @@ import TradeHistoryTable from '@/components/TradeHistory';
 import { useCurrentPrices } from '@/hooks/walletHooks';
 import NotificationDrawer from '@/components/Notification';
 import NavBar from '@/components/NavBar';
+import { BTCAddress, ETHAddress, erc20ABI, tradeABI, tradeAddress } from '@/constants';
 
 export type Address = string | null;
 
 const tokenOptions = [
-    { label: "m_APE", value: "0x123abc" },
-    { label: "m_BIT", value: "0x456def" },
-    { label: "m_DAI", value: "0x789ghi" },
+    { label: "m_BTC", value: BTCAddress },
+    { label: "m_ETH", value: ETHAddress },
     { label: "m_USDC", value: "0xabc123" },
-    { label: "m_ETH", value: "0xdef456" },
 ];
 
 const Dashboard = () => {
 
     const { address } = useAccount();
-    const [traderToken, setTraderToken] = useState("");
-    const [traderAmount, setTraderAmount] = useState(0.00);
-    const [counterpartyToken, setCounterpartyToken] = useState("");
+    const [traderToken, setTraderToken] = useState<string>("");
+    const [traderAmount, setTraderAmount] = useState<number>(0.00);
+    const [counterpartyToken, setCounterpartyToken] = useState<string>("");
     const currentPrices = useCurrentPrices()
 
-    const handleSubmit = () => {
-        // Perform trade order submission logic here
-        console.log("Submitted trade order");
-    };
 
+    async function submitTrade() {
+        // Check if all required inputs are provided
+        if (!traderToken || !traderAmount || !counterpartyToken) {
+            console.log("Please fill in all the fields");
+            return;
+        }
+
+        // Convert traderAmount to the appropriate unit (e.g., from mBTC to BTC)
+        const convertedAmount = ethers.utils.parseEther("10");
+
+        // Initialize ethers and contract instance
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+            console.log("Ethereum provider not available");
+            return;
+        }
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const contractAddress = tradeAddress; // Replace with the actual trade contract address
+        const contractAbi = tradeABI; // Replace with the actual trade contract ABI
+        const contract = new ethers.Contract(contractAddress, contractAbi, signer);
+
+        //get allowance first
+        const TradertokenContract = new ethers.Contract(BTCAddress, erc20ABI, signer);
+
+        try {
+
+
+            // const preTx = await TradertokenContract.approve(contract.address, ethers.utils.parseUnits(String(traderAmount + 3), 18));
+            // preTx.wait();
+
+            const tx = await contract.submitTradeOrder(
+                ethers.utils.getAddress(traderToken),
+                convertedAmount,
+                ethers.utils.getAddress(counterpartyToken)
+                // { gasLimit: 200000, }
+
+            )
+            tx.wait()
+            console.log("Trade order submitted:", tx.hash);
+            setTraderAmount(0)
+            setTraderToken("")
+            setCounterpartyToken("")
+        } catch (e) {
+            console.log(e)
+        }
+
+    }
+
+
+
+    // Function to fetch token prices from Coingecko
+    async function fetchTokenPrices() {
+        const response = await fetch(
+            "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
+        );
+        const data = await response.json();
+        const bitcoinPrice = data.bitcoin.usd;
+        const ethereumPrice = data.ethereum.usd;
+        console.log({ bitcoinPrice, ethereumPrice })
+        return { bitcoinPrice, ethereumPrice };
+    }
+    // Function to update the exchange rate in the smart contract
+    async function updateExchangeRate(contract: any, tokenA: string, tokenB: string, rate: any) {
+        // Initialize ethers and contract instance
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+            return;
+        }
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+
+        const options = {
+            gasLimit: 200000, // Set your desired gas limit here
+        };
+        // Update the exchange rate
+        const contractWithSigner = contract.connect(signer);
+        await contractWithSigner.updateExchangeRate(tokenA, tokenB, rate);
+        console.log("Exchange rate updated successfully!");
+    }
+
+    // useEffect(() => {
+    //     // Initialize ethers and contract instance
+    //     const ethereum = (window as any).ethereum;
+    //     if (!ethereum) {
+    //         return;
+    //     }
+    //     const provider = new ethers.providers.Web3Provider(ethereum);
+    //     const contractAddress = tradeAddress;
+    //     const contractAbi = tradeABI;
+    //     const contract = new ethers.Contract(contractAddress, contractAbi, provider);
+
+    //     // Fetch token prices and update exchange rate
+    //     fetchTokenPrices()
+    //         .then(({ bitcoinPrice, ethereumPrice }) => {
+    //             const tokenA = BTCAddress; // Address of Mock Bitcoin
+    //             const tokenB = ETHAddress; // Address of Mock Ethereu
+    //             const rate = ethers.utils.parseUnits(String(30516 / 1852.4), 18);
+
+
+    //             updateExchangeRate(contract, tokenA, tokenB, rate);
+    //         })
+    //         .catch((error) => {
+    //             console.log("Error fetching token prices:", error);
+    //         });
+    // }, []);
+
+    // Function to get and print the exchange rates
+
+    async function getExchangeRates() {
+        try {
+            // Get the token addresses for which you want to retrieve the exchange rates
+            const tokenA = BTCAddress;
+            const tokenB = ETHAddress;
+            const ethereum = (window as any).ethereum;
+            if (!ethereum) {
+                return;
+            }
+            const provider = new ethers.providers.Web3Provider(ethereum);
+
+            const contract = new ethers.Contract(tradeAddress, tradeABI, provider);
+
+            // Call the contract function to retrieve the exchange rate
+            const exchangeRate = await contract.getExchangeRate(tokenA, tokenB);
+
+            console.log(`Exchange rate between ${tokenA} and ${tokenB}: ${ethers.utils.formatUnits(exchangeRate.toString(), 18)}`);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+
+    // useEffect(() => {
+    //     getExchangeRates()
+    // }, [])
 
     return (
         <>
@@ -163,11 +293,13 @@ const Dashboard = () => {
                                             onChange={(e) => setTraderToken(e.target.value)}
                                         // styles={selectStyles}
                                         >
-                                            {tokenOptions.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
+                                            {tokenOptions
+                                                .filter((option) => option.value !== counterpartyToken) // Exclude the selected traderToken
+                                                .map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
                                         </Select>
                                     </FormControl>
 
@@ -211,11 +343,15 @@ const Dashboard = () => {
                                             onChange={(e) => setCounterpartyToken(e.target.value)}
 
                                         >
-                                            {tokenOptions.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
+                                            {tokenOptions
+                                                .filter((option) => option.value !== traderToken)
+                                                .map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+
+
                                         </Select>
                                     </FormControl>
                                 </TabPanel>
@@ -228,7 +364,9 @@ const Dashboard = () => {
 
                         <Button
                             h="50px"
-                            colorScheme="blue" mb={4} width="100%" onClick={handleSubmit}>
+                            colorScheme="blue" mb={4} width="100%"
+                            onClick={submitTrade}
+                        >
                             Submit Swap Order
                         </Button>
 

@@ -82,9 +82,10 @@ contract TradeHelper {
                 "ERC20 transfer failed"
             );
         } else if (tokenType == TokenType.ERC721) {
-            //implement NFT transfer
+            // Implement NFT transfer
         } else if (tokenType == TokenType.CUSTOM) {
-            //implement custom transfer
+            // Implement custom transfer
+            // Add the appropriate transfer logic here
         }
     }
 
@@ -109,7 +110,11 @@ contract TradeHelper {
             revert("Invalid token pair");
         }
 
-        return (amountIn * exchangeRates[tokenIn]) / exchangeRates[tokenOut];
+        // Adjust the calculation by scaling the exchange rate
+        uint256 scaledAmountOut = (amountIn * exchangeRates[tokenIn]) /
+            (10 ** 18);
+
+        return scaledAmountOut;
     }
 
     function createPendingAction(
@@ -164,5 +169,52 @@ contract TradeHelper {
         }
 
         return (highestCoverage, selectedFulfillerIndex);
+    }
+
+    function updateTradeStates(
+        Trade storage newTrade,
+        Trade storage existingTrade,
+        uint256 highestCoverage,
+        address sender,
+        address erc20SwapAddress
+    ) internal {
+        newTrade.counterParty = existingTrade.initiator;
+        newTrade.balance -= (newTrade.initiatorAmount * highestCoverage) / 100;
+        newTrade.state = State.BEGUN;
+
+        existingTrade.balance -=
+            (existingTrade.balance * highestCoverage) /
+            100;
+        existingTrade.fulfillments[sender] = highestCoverage;
+
+        if (existingTrade.state == State.PENDING) {
+            existingTrade.balance -=
+                (existingTrade.balance * highestCoverage) /
+                100;
+            existingTrade.fulfillments[sender] = highestCoverage;
+            existingTrade.state = State.BEGUN;
+        } else {
+            // Existing trade was in a PARTIAL state, retain the state
+            existingTrade.fulfillments[sender] = highestCoverage;
+        }
+
+        // Begin the swap and retrieve the swap ID
+        uint256 swapID = SwapERC20(erc20SwapAddress).begin(
+            newTrade.initiator,
+            newTrade.counterParty,
+            newTrade.initiatorToken,
+            newTrade.counterPartyToken,
+            (newTrade.initiatorAmount * highestCoverage) / 100,
+            (newTrade.counterPartyAmount * highestCoverage) / 100
+        );
+
+        // Create pending action with the retrieved swap ID
+        createPendingAction(
+            newTrade.id,
+            existingTrade.id,
+            sender,
+            TokenType.ERC20,
+            swapID
+        );
     }
 }

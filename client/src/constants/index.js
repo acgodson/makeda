@@ -1,7 +1,6 @@
-export const factoryAddress = "0x9c87E67b134Aa16505f1ED4812DF7d84B5a12d88";
-
-// int spaceId "0x244dC35A8130Fe279DAD75D570A18D7a623D9cD3";
-// calibrationet "0x07b1E2415872b73fFD99cAc3ccACE9A95ADa5Ef6";
+export const tradeAddress = "0x0EAED3345c0D6F18342ff982a9b53E5b041303Fd";
+export const BTCAddress = "0x37bEcc8ed3EaFB5b8db58EDb4ee11494181a0276"; // Address of Bitcoin
+export const ETHAddress = "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4";
 
 export const shortenAddress = (address) => {
   if (!address) {
@@ -12,19 +11,125 @@ export const shortenAddress = (address) => {
   return address.slice(0, 6) + "..." + address.slice(-4);
 };
 
-export const walletAbi = [
+export const tradeABI = [
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "initiator",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "counterParty",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "initiatorToken",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "counterPartyToken",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "initiatorAmount",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "counterPartyAmount",
+        type: "uint256",
+      },
+    ],
+    name: "SwapBegun",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+    ],
+    name: "SwapCompleted",
+    type: "event",
+  },
   {
     anonymous: false,
     inputs: [
       {
         indexed: false,
-        internalType: "uint8",
-        name: "version",
-        type: "uint8",
+        internalType: "uint256",
+        name: "tradeId",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "fulfiller",
+        type: "address",
       },
     ],
-    name: "Initialized",
+    name: "SwapCompleted",
     type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "tradeId",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "initiator",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "counterParty",
+        type: "address",
+      },
+    ],
+    name: "TradeOrderSubmitted",
+    type: "event",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "pendingActionId",
+        type: "uint256",
+      },
+    ],
+    name: "completeSwap",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
     inputs: [
@@ -34,7 +139,7 @@ export const walletAbi = [
         type: "address",
       },
     ],
-    name: "balances",
+    name: "exchangeRates",
     outputs: [
       {
         internalType: "uint256",
@@ -46,10 +151,56 @@ export const walletAbi = [
     type: "function",
   },
   {
-    inputs: [],
-    name: "deposit",
-    outputs: [],
-    stateMutability: "payable",
+    inputs: [
+      {
+        internalType: "address",
+        name: "traderToken",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "counterPartyToken",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "traderAmount",
+        type: "uint256",
+      },
+    ],
+    name: "getCounterPartyAmount",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "tokenA",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "tokenB",
+        type: "address",
+      },
+    ],
+    name: "getExchangeRate",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -60,37 +211,57 @@ export const walletAbi = [
         type: "address",
       },
     ],
-    name: "getTransactionHistory",
+    name: "getSwaps",
     outputs: [
       {
         components: [
           {
             internalType: "uint256",
-            name: "amount",
+            name: "id",
+            type: "uint256",
+          },
+          {
+            internalType: "address",
+            name: "initiator",
+            type: "address",
+          },
+          {
+            internalType: "address",
+            name: "counterParty",
+            type: "address",
+          },
+          {
+            internalType: "address",
+            name: "initiatorToken",
+            type: "address",
+          },
+          {
+            internalType: "address",
+            name: "counterPartyToken",
+            type: "address",
+          },
+          {
+            internalType: "uint256",
+            name: "initiatorAmount",
             type: "uint256",
           },
           {
             internalType: "uint256",
-            name: "timestamp",
+            name: "counterPartyAmount",
             type: "uint256",
           },
           {
-            internalType: "address",
-            name: "sender",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "receiver",
-            type: "address",
+            internalType: "bool",
+            name: "initiated",
+            type: "bool",
           },
           {
             internalType: "bool",
-            name: "isDeposit",
+            name: "completed",
             type: "bool",
           },
         ],
-        internalType: "struct OrionWallet.Transaction[]",
+        internalType: "struct TradeContract.Swap[]",
         name: "",
         type: "tuple[]",
       },
@@ -101,17 +272,56 @@ export const walletAbi = [
   {
     inputs: [
       {
-        internalType: "address[]",
-        name: "_ownerAddresses",
-        type: "address[]",
-      },
-      {
-        internalType: "uint256[]",
-        name: "_shares",
-        type: "uint256[]",
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
       },
     ],
-    name: "initialize",
+    name: "pendingActions",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "tradeId",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "fulfillerTradeId",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "fulfiller",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "swapID",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "traderToken",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "traderAmount",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "counterPartyToken",
+        type: "address",
+      },
+    ],
+    name: "submitTradeOrder",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -119,271 +329,75 @@ export const walletAbi = [
   {
     inputs: [
       {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    name: "swapContracts",
+    outputs: [
+      {
         internalType: "address",
-        name: "ownerAddress",
+        name: "",
         type: "address",
       },
     ],
-    name: "isOwner",
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    name: "swaps",
     outputs: [
       {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "initiator",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "counterParty",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "initiatorToken",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "counterPartyToken",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "initiatorAmount",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "counterPartyAmount",
+        type: "uint256",
+      },
+      {
         internalType: "bool",
-        name: "",
+        name: "initiated",
         type: "bool",
       },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    name: "owners",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    name: "shares",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    name: "transactionHistory",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "timestamp",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "sender",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "receiver",
-        type: "address",
-      },
       {
         internalType: "bool",
-        name: "isDeposit",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address payable",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-    ],
-    name: "transfer",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-    ],
-    name: "withdraw",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    stateMutability: "payable",
-    type: "receive",
-  },
-];
-export const factoryAbi = [
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "spaceId",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "leader",
-        type: "address",
-      },
-    ],
-    name: "SpaceCreated",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "spaceId",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "wallet",
-        type: "address",
-      },
-    ],
-    name: "WalletCreated",
-    type: "event",
-  },
-  {
-    inputs: [],
-    name: "EPNS_COMM_ADDRESS",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "spaceId",
-        type: "address",
-      },
-      {
-        internalType: "address[]",
-        name: "_participants",
-        type: "address[]",
-      },
-      {
-        internalType: "uint256[]",
-        name: "_proposedShares",
-        type: "uint256[]",
-      },
-    ],
-    name: "createSpace",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "spaceId",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "participant",
-        type: "address",
-      },
-    ],
-    name: "isParticipantSigned",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "spaceId",
-        type: "address",
-      },
-    ],
-    name: "isSpaceCreated",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
+        name: "completed",
         type: "bool",
       },
     ],
@@ -392,108 +406,188 @@ export const factoryAbi = [
   },
   {
     inputs: [],
-    name: "owner",
+    name: "tradeCounter",
     outputs: [
       {
-        internalType: "address",
+        internalType: "uint256",
         name: "",
-        type: "address",
+        type: "uint256",
       },
     ],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [],
-    name: "renounceOwnership",
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    name: "trades",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "initiator",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "initiatorToken",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "initiatorAmount",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "counterParty",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "counterPartyToken",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "counterPartyAmount",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "balance",
+        type: "uint256",
+      },
+      {
+        internalType: "enum TradeHelper.State",
+        name: "state",
+        type: "uint8",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "tokenA",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "tokenB",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "rate",
+        type: "uint256",
+      },
+    ],
+    name: "updateExchangeRate",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "salt",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "spaceId",
-        type: "address",
-      },
-    ],
-    name: "signAgreement",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    name: "spaces",
-    outputs: [
-      {
-        internalType: "address",
-        name: "leader",
-        type: "address",
-      },
-      {
-        internalType: "bool",
-        name: "walletCreated",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    name: "wallets",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
     type: "function",
   },
 ];
 
-export const handleOpenExplorer = (wallet) => {
-  window.open(`https://goerli.etherscan.io/address/${wallet}`, "_blank");
+export const erc20ABI = [
+  // Read-only functions
+  {
+    constant: true,
+    inputs: [],
+    name: "name",
+    outputs: [{ name: "", type: "string" }],
+    payable: false,
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: "symbol",
+    outputs: [{ name: "", type: "string" }],
+    payable: false,
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: "decimals",
+    outputs: [{ name: "", type: "uint8" }],
+    payable: false,
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [{ name: "_owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "balance", type: "uint256" }],
+    payable: false,
+    stateMutability: "view",
+    type: "function",
+  },
+  // Write functions
+  {
+    constant: false,
+    inputs: [
+      { name: "_spender", type: "address" },
+      { name: "_value", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ name: "success", type: "bool" }],
+    payable: false,
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    constant: false,
+    inputs: [
+      { name: "_to", type: "address" },
+      { name: "_value", type: "uint256" },
+    ],
+    name: "transfer",
+    outputs: [{ name: "success", type: "bool" }],
+    payable: false,
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    constant: false,
+    inputs: [
+      { name: "_from", type: "address" },
+      { name: "_to", type: "address" },
+      { name: "_value", type: "uint256" },
+    ],
+    name: "transferFrom",
+    outputs: [{ name: "success", type: "bool" }],
+    payable: false,
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    constant: false,
+    inputs: [{ name: "_value", type: "uint256" }],
+    name: "burn",
+    outputs: [{ name: "success", type: "bool" }],
+    payable: false,
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+];
+
+export const handleOpenExplorer = (address) => {
+  window.open(`https://goerli.etherscan.io/address/${address}`, "_blank");
 };
