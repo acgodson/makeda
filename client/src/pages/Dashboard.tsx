@@ -16,7 +16,7 @@ export type Address = string | null;
 const tokenOptions = [
     { label: "m_BTC", value: BTCAddress },
     { label: "m_ETH", value: ETHAddress },
-    { label: "m_USDC", value: "0xabc123" },
+    // { label: "m_USDC", value: "0xabc123" },
 ];
 
 const Dashboard = () => {
@@ -25,6 +25,7 @@ const Dashboard = () => {
     const [traderToken, setTraderToken] = useState<string>("");
     const [traderAmount, setTraderAmount] = useState<number>(0.00);
     const [counterpartyToken, setCounterpartyToken] = useState<string>("");
+    const [myTrades, setTrades] = useState<any[] | null>(null);
     const currentPrices = useCurrentPrices()
 
 
@@ -51,20 +52,16 @@ const Dashboard = () => {
         const contract = new ethers.Contract(contractAddress, contractAbi, signer);
 
         //get allowance first
-        const TradertokenContract = new ethers.Contract(BTCAddress, erc20ABI, signer);
-
+        const TradertokenContract = new ethers.Contract(traderToken, erc20ABI, signer);
         try {
-
-
-            // const preTx = await TradertokenContract.approve(contract.address, ethers.utils.parseUnits(String(traderAmount + 3), 18));
-            // preTx.wait();
-
+            const preTx = await TradertokenContract.approve(contract.address, ethers.utils.parseUnits(String(traderAmount + 3), 18));
+            preTx.wait();
             const tx = await contract.submitTradeOrder(
+                0,
                 ethers.utils.getAddress(traderToken),
                 convertedAmount,
-                ethers.utils.getAddress(counterpartyToken)
-                // { gasLimit: 200000, }
-
+                ethers.utils.getAddress(counterpartyToken),
+                { gasLimit: 500000 }
             )
             tx.wait()
             console.log("Trade order submitted:", tx.hash);
@@ -108,7 +105,6 @@ const Dashboard = () => {
         await contractWithSigner.updateExchangeRate(tokenA, tokenB, rate);
         console.log("Exchange rate updated successfully!");
     }
-
     // useEffect(() => {
     //     // Initialize ethers and contract instance
     //     const ethereum = (window as any).ethereum;
@@ -126,8 +122,6 @@ const Dashboard = () => {
     //             const tokenA = BTCAddress; // Address of Mock Bitcoin
     //             const tokenB = ETHAddress; // Address of Mock Ethereu
     //             const rate = ethers.utils.parseUnits(String(30516 / 1852.4), 18);
-
-
     //             updateExchangeRate(contract, tokenA, tokenB, rate);
     //         })
     //         .catch((error) => {
@@ -158,11 +152,49 @@ const Dashboard = () => {
             console.error('Error:', error);
         }
     }
-
-
     // useEffect(() => {
     //     getExchangeRates()
     // }, [])
+
+    useEffect(() => {
+        const fetchTrades = async () => {
+            if (!address) {
+                return;
+            }
+            try {
+                const ethereum = (window as any).ethereum;
+                const provider = new ethers.providers.Web3Provider(ethereum);
+                const signer = provider.getSigner();
+                const tradeContract = new ethers.Contract(tradeAddress, tradeABI, signer);
+                const tradeCounter = await tradeContract.tradeCounter();
+                const tradesData = [];
+
+                for (let i = 0; i <= tradeCounter; i++) {
+                    const { 0: id, 1: initiator, 2: initiatorToken, 3: initiatorAmount, 4: counterPartyToken, 5: counterPartyAmount, 6: balance, 7: state } = await tradeContract.trades(i);
+                    // Check if the trade's state is not finished and the initiator is the user's address
+                    if (state !== 2 && initiator === ethers.utils.getAddress(address)) {
+                        const _trade = { id: ethers.utils.formatUnits(id, 18), initiator, initiatorToken, initiatorAmount: ethers.utils.formatUnits(initiatorAmount, 18), counterPartyToken, balance: ethers.utils.formatUnits(balance, 18), state };
+                        tradesData.push(_trade);
+                    }
+                }
+                setTrades(tradesData);
+            } catch (error) {
+                console.error('Error fetching trades:', error);
+            }
+        };
+
+        if (address && !myTrades) {
+            console.log(address)
+            fetchTrades();
+        }
+    }, [address]);
+
+
+    // useEffect(() => {
+    //     if (myTrades) {
+    //         console.log(myTrades)
+    //     }
+    // }, [myTrades])
 
     return (
         <>
@@ -197,8 +229,6 @@ const Dashboard = () => {
                         },
                     }}
                 >
-
-
 
                     <Box w="100%" display={"flex"} justifyContent={"flex-end"} pb={3} pr={2}>
                         <NotificationDrawer />
@@ -244,7 +274,9 @@ const Dashboard = () => {
                         </Box>
                     </VStack>
                     <br />
-                    <TradeHistoryTable />
+                    {myTrades && <TradeHistoryTable
+                        tradeData={myTrades}
+                    />}
                 </Box>
 
                 <VStack

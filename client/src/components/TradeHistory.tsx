@@ -1,41 +1,24 @@
+import { BTCAddress, ETHAddress } from "@/constants";
 import { Table, Tbody, Tr, Td, Center, Icon, useColorModeValue, Th, Thead, Box } from "@chakra-ui/react";
 import { FiRepeat } from "react-icons/fi";
 
-const TradeHistoryTable = () => {
-    const tradeData = [
-        {
-            id: 1,
-            trade: {
-                from: "ETH",
-                to: "BTC"
-            },
-            amountReceived: 0.123456,
-            balanceLeft: 0.54321,
-            status: "Finished"
-        },
-        {
-            id: 2,
-            trade: {
-                from: "BTC",
-                to: "ETH"
-            },
-            amountReceived: 0.987654,
-            balanceLeft: 0.12345,
-            status: "Partial"
-        },
-        {
-            id: 3,
-            trade: {
-                from: "LTC",
-                to: "XRP"
-            },
-            amountReceived: 10.0,
-            balanceLeft: 0.0,
-            status: "Pending"
-        }
-    ];
+const TradeHistoryTable = (prop: { tradeData: any[] | null }) => {
+
+    const tradeData = prop.tradeData;
     const textColor = useColorModeValue("whiteAlpha.600", "gray.800");
     const lineColor = useColorModeValue("blue", "blue");
+
+
+    if (!tradeData) {
+        return;
+    }
+
+
+    const tokenOptions = [
+        { label: "m_BTC", value: BTCAddress },
+        { label: "m_ETH", value: ETHAddress },
+        // { label: "m_USDC", value: "0xabc123" },
+    ];
 
     return (
         <Table variant="unstyled" color={textColor}
@@ -59,17 +42,27 @@ const TradeHistoryTable = () => {
                         <Td
                             color={"white"}
                         >
-                            {trade.trade.from} <Icon as={FiRepeat} /> {trade.trade.to}
+                            {tokenOptions.map((token) => token.value === trade.initiatorToken && token.label)}
+                            <Icon as={FiRepeat}
+                                mx={1}
+                                color={"#334c8b"}
+                            />    {tokenOptions.map((token) => token.value === trade.counterPartyToken && token.label)}
                         </Td>
-                        <Td>{trade.amountReceived} {trade.trade.to} </Td>
-                        <Td>{trade.balanceLeft}  {trade.trade.from}</Td>
-                        <Td>
+                        <Td color="white">
+                            0
+                            {/* {trade.amountReceived}  */} {" "}
+                            {tokenOptions.map((token) => token.value === trade.counterPartyToken && token.label)}
+                        </Td>
+                        <Td color="white">{trade.balance} {" "}
+                            {tokenOptions.map((token) => token.value === trade.initiatorToken && token.label)}</Td>
+                        <Td color="white">
                             <Box as="span" style={{
                                 cursor: "pointer",
                                 textDecoration: "underline",
-                                color: trade.status === "Finished" ? "gray.300" : trade.status === "Partial" ? "#727a00" : "#006d7c"
+                                color: trade.state === 2 ? "gray.300" : trade.state === 1 ? "#727a00" : "#006d7c"
                             }}>
-                                {trade.status}
+                                {trade.state === 2 ? "Finished" : trade.state === 1 ? "Partial" : "Begun"
+                                }
                             </Box>
 
                         </Td>

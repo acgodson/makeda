@@ -1,4 +1,4 @@
-export const tradeAddress = "0x0EAED3345c0D6F18342ff982a9b53E5b041303Fd";
+export const tradeAddress = "0x04bB38a35eAc3b7FA724b6Dde1638EC2D682Ed7F";
 export const BTCAddress = "0x37bEcc8ed3EaFB5b8db58EDb4ee11494181a0276"; // Address of Bitcoin
 export const ETHAddress = "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4";
 
@@ -13,66 +13,9 @@ export const shortenAddress = (address) => {
 
 export const tradeABI = [
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "initiator",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "counterParty",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "initiatorToken",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "counterPartyToken",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "initiatorAmount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "counterPartyAmount",
-        type: "uint256",
-      },
-    ],
-    name: "SwapBegun",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-    ],
-    name: "SwapCompleted",
-    type: "event",
+    inputs: [],
+    stateMutability: "nonpayable",
+    type: "constructor",
   },
   {
     anonymous: false,
@@ -153,6 +96,30 @@ export const tradeABI = [
   {
     inputs: [
       {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    name: "fulfillments",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "payer",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
         internalType: "address",
         name: "traderToken",
         type: "address",
@@ -206,72 +173,6 @@ export const tradeABI = [
   {
     inputs: [
       {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "getSwaps",
-    outputs: [
-      {
-        components: [
-          {
-            internalType: "uint256",
-            name: "id",
-            type: "uint256",
-          },
-          {
-            internalType: "address",
-            name: "initiator",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "counterParty",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "initiatorToken",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "counterPartyToken",
-            type: "address",
-          },
-          {
-            internalType: "uint256",
-            name: "initiatorAmount",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "counterPartyAmount",
-            type: "uint256",
-          },
-          {
-            internalType: "bool",
-            name: "initiated",
-            type: "bool",
-          },
-          {
-            internalType: "bool",
-            name: "completed",
-            type: "bool",
-          },
-        ],
-        internalType: "struct TradeContract.Swap[]",
-        name: "",
-        type: "tuple[]",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
         internalType: "uint256",
         name: "",
         type: "uint256",
@@ -296,7 +197,22 @@ export const tradeABI = [
       },
       {
         internalType: "uint256",
+        name: "tokenIndex",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
         name: "swapID",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "fulfillerAmount",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "traderAmount",
         type: "uint256",
       },
     ],
@@ -305,6 +221,11 @@ export const tradeABI = [
   },
   {
     inputs: [
+      {
+        internalType: "uint256",
+        name: "tokenIndex",
+        type: "uint256",
+      },
       {
         internalType: "address",
         name: "traderToken",
@@ -322,7 +243,23 @@ export const tradeABI = [
       },
     ],
     name: "submitTradeOrder",
-    outputs: [],
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "counterPartyAmount",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "balance",
+        type: "uint256",
+      },
+    ],
     stateMutability: "nonpayable",
     type: "function",
   },
@@ -340,65 +277,6 @@ export const tradeABI = [
         internalType: "address",
         name: "",
         type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    name: "swaps",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "initiator",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "counterParty",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "initiatorToken",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "counterPartyToken",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "initiatorAmount",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "counterPartyAmount",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "initiated",
-        type: "bool",
-      },
-      {
-        internalType: "bool",
-        name: "completed",
-        type: "bool",
       },
     ],
     stateMutability: "view",
@@ -446,11 +324,6 @@ export const tradeABI = [
         internalType: "uint256",
         name: "initiatorAmount",
         type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "counterParty",
-        type: "address",
       },
       {
         internalType: "address",

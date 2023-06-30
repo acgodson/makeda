@@ -23,7 +23,22 @@ Peer-2-Peer Trading Platform automated using **ATE** (Adaptive Trade Execution) 
 4. Approve matches and wait for swap completion.
 5. View exchange rate chart and your trade history.
 
-## Screenshots
+## Requirements
+
+HardHat and Nodejs Installed
+
+```bash
+
+git clone "https://github,com/acgodson/makeda"
+cd Smart-Contract
+npm install
+```
+
+Test Contract
+
+```bash
+npx hardhat test
+```
 
 <!-- Replace the image URLs below with the actual links to your project screenshots -->
 
@@ -41,3 +56,10 @@ Peer-2-Peer Trading Platform automated using **ATE** (Adaptive Trade Execution) 
 | SwapERC20     | Custom   | 0xDFE38148EF1115F2f8889A239dEEe1DC781562e1 |
 | SwapERC721    | Custom   | 0x0563E89b08953C6eC9A494b6B0acf572A9B76430 |
 | TradeContract | Custom   | 0x04bB38a35eAc3b7FA724b6Dde1638EC2D682Ed7F |
+
+## More Screenshots 
+Clientside development
+![UI](Snapshots/bg2.png)
+![UI](Snapshots/bg3.png)
+![UI](Snapshots/bg4.png)
+
