@@ -6,10 +6,10 @@ import "../swaps/SwapERC20.sol";
 import "../swaps/SwapERC721.sol";
 import "../swaps/CustomSwap.sol";
 
-// import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-abstract contract TradeHelper {
-    // using SafeMath for uint256;
+contract TradeHelper {
+    using SafeMath for uint256;
 
     enum TokenType {
         ERC20,
@@ -51,8 +51,8 @@ abstract contract TradeHelper {
     }
 
     mapping(uint256 => Trade) public trades; // Mapping for trades
-    mapping(uint256 => PendingAction) public pendingActions; // Mapping for pending actions
-    mapping(uint256 => Fulfillment) public fulfillments; //moved outside struct
+    mapping(address => PendingAction) public pendingActions; // Mapping for pending actions
+    mapping(uint256 => Fulfillment) public fulfillments;
 
     uint256 public tradeCounter;
 
@@ -61,8 +61,6 @@ abstract contract TradeHelper {
         address initiator,
         address counterParty
     );
-    event SwapCompleted(uint256 tradeId, address fulfiller);
-
     mapping(address => uint256) public exchangeRates; // Mapping for exchange rates
 
     function setExchangeRate(
@@ -144,7 +142,7 @@ abstract contract TradeHelper {
         uint256 fulfillerAmount,
         uint256 traderAmount
     ) internal {
-        pendingActions[tradeId] = PendingAction(
+        PendingAction memory newPendingAction = PendingAction(
             tradeId,
             fulfillerTradeId,
             fulfiller,
@@ -153,40 +151,49 @@ abstract contract TradeHelper {
             fulfillerAmount,
             traderAmount
         );
+        pendingActions[fulfiller] = newPendingAction;
     }
 
     function findBestMatch(
         uint256 tradeId,
-        address traderToken,
-        address counterPartyToken,
-        uint256 traderAmount
+        uint256 counterPartyAmount
     ) internal view returns (uint256, uint256) {
-        uint256 highestCoverage = 0;
-        uint256 selectedFulfillerIndex = 0;
+        uint256 highestCoverage;
+        uint256 selectedFulfillerIndex;
+        uint256 count = 0; // Number of trades with highest coverage
+        Trade storage currentTrade = trades[tradeId];
 
-        for (uint256 i = 1; i <= tradeCounter; i++) {
-            // Skip the current trade
-            if (i == tradeId) {
-                continue;
-            }
-
+        for (uint256 i = 0; i < tradeCounter; i++) {
             Trade storage trade = trades[i];
 
             if (
-                trade.state != State.PENDING || // Only consider pending trades
-                trade.initiatorToken != counterPartyToken || // Check token types
-                trade.counterPartyToken != traderToken || // Check token types
-                trade.counterPartyAmount == 0 || // Ensure counterPartyAmount is non-zero
-                traderAmount == 0 // Ensure traderAmount is non-zero
+                trade.state != State.FINISHED &&
+                currentTrade.initiatorToken == trade.counterPartyToken
             ) {
-                continue;
-            }
+                // Calculate the coverage as the minimum between counterPartyAmount and trade.balance
+                uint256 coverage = counterPartyAmount < trade.balance
+                    ? counterPartyAmount
+                    : trade.balance;
 
-            uint256 coverage = (traderAmount * 100) / trade.counterPartyAmount;
-
-            if (coverage > highestCoverage && coverage <= 100) {
-                highestCoverage = coverage;
-                selectedFulfillerIndex = i;
+                if (coverage > highestCoverage) {
+                    highestCoverage = coverage;
+                    selectedFulfillerIndex = i;
+                    count = 1;
+                } else if (coverage == highestCoverage) {
+                    count++;
+                    // Randomly choose between the current selected trade and the new trade with the same coverage
+                    if (count == 2) {
+                        if (
+                            uint256(
+                                keccak256(abi.encodePacked(block.timestamp))
+                            ) %
+                                2 ==
+                            0
+                        ) {
+                            selectedFulfillerIndex = i;
+                        }
+                    }
+                }
             }
         }
 
@@ -194,41 +201,27 @@ abstract contract TradeHelper {
     }
 
     function updateTradeStates(
-        Trade memory newTrade,
-        Trade memory existingTrade,
+        uint256 newTradeID,
+        uint256 existingTradeID,
         uint256 highestCoverage,
-        address sender,
-        address erc20SwapAddress
+        uint256 exchangeRate
     ) internal {
-        newTrade.balance -= (newTrade.initiatorAmount * highestCoverage) / 100;
+        Trade storage newTrade = trades[newTradeID];
+        Trade storage existingTrade = trades[existingTradeID];
+
+        uint256 traderAmountEquivalent = highestCoverage / exchangeRate;
+
+        newTrade.balance = newTrade.balance - traderAmountEquivalent;
         newTrade.state = State.BEGUN;
+        existingTrade.state = State.BEGUN;
+        existingTrade.balance = existingTrade.balance - highestCoverage;
+    }
 
-        if (existingTrade.state != State.FINISHED) {
-            existingTrade.balance -=
-                (existingTrade.balance * highestCoverage) /
-                100;
-        }
-
-        // Begin the swap and retrieve the swap ID
-        uint256 swapID = SwapERC20(erc20SwapAddress).begin(
-            newTrade.initiator,
-            existingTrade.initiator,
-            newTrade.initiatorToken,
-            newTrade.counterPartyToken,
-            (newTrade.initiatorAmount * highestCoverage) / 100,
-            (newTrade.counterPartyAmount * highestCoverage) / 100
-        );
-
-        //update fulfiller only when counterparty has completed swap
-        // Create pending action with the retrieved swap ID (erc20)
-        createPendingAction(
-            newTrade.id,
-            existingTrade.id,
-            sender,
-            0,
-            swapID,
-            (newTrade.initiatorAmount * highestCoverage) / 100,
-            (newTrade.counterPartyAmount * highestCoverage) / 100
-        );
+    // Get the exchange rate between two tokens
+    function getExchangeRate(
+        address tokenA,
+        address tokenB
+    ) internal view returns (uint256) {
+        return exchangeRates[getPairAddress(tokenA, tokenB)];
     }
 }

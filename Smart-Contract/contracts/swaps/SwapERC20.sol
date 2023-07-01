@@ -7,11 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SwapERC20 is Ownable, Pausable {
-    using Counters for Counters.Counter;
-
-    Counters.Counter private instanceId;
-
+contract SwapERC20 {
     struct Swap {
         uint256 id;
         address initiator;
@@ -27,14 +23,12 @@ contract SwapERC20 is Ownable, Pausable {
     mapping(uint256 => Swap) public swaps;
     mapping(address => uint256[]) private swapIdsByAddress;
 
+    uint256 public swapCounter;
+
     event SwapBegun(
         uint256 indexed id,
         address indexed initiator,
-        address indexed counterParty,
-        address initiatorToken,
-        address counterPartyToken,
-        uint256 initiatorAmount,
-        uint256 counterPartyAmount
+        address indexed counterParty
     );
     event SwapCompleted(uint256 indexed id);
 
@@ -56,41 +50,37 @@ contract SwapERC20 is Ownable, Pausable {
         address counterParty,
         address initiatorToken,
         address counterPartyToken,
-        uint256 initiatorAmount,
-        uint256 counterPartyAmount
-    ) external whenNotPaused returns (uint256) {
+        uint256 highestCoverage,
+        uint256 exchangeRate
+    ) internal returns (uint256) {
         require(initiatorParty != address(0), "Invalid initiator address");
         require(counterParty != address(0), "Invalid counterParty address");
-        require(initiatorAmount > 0, "Invalid amount");
+        require(highestCoverage > 0, "Invalid amount");
 
-        instanceId.increment();
-        uint256 id = instanceId.current();
-        swaps[id] = Swap({
+        uint256 traderAmountEquivalent = highestCoverage / exchangeRate;
+
+        uint256 id = swapCounter;
+        Swap memory swap = Swap({
             id: id,
             initiator: initiatorParty,
             counterParty: counterParty,
             initiatorToken: initiatorToken,
             counterPartyToken: counterPartyToken,
-            initiatorAmount: initiatorAmount,
-            counterPartyAmount: counterPartyAmount,
+            initiatorAmount: traderAmountEquivalent,
+            counterPartyAmount: highestCoverage,
             initiated: true,
             completed: false
         });
+        swaps[swapCounter] = swap;
 
         swapIdsByAddress[initiatorParty].push(id);
-        emit SwapBegun(
-            id,
-            initiatorParty,
-            counterParty,
-            initiatorToken,
-            counterPartyToken,
-            initiatorAmount,
-            counterPartyAmount
-        );
+
+        emit SwapBegun(id, initiatorParty, counterParty);
+        swapCounter++;
         return id; // Return the trade ID
     }
 
-    function complete(uint256 id) external whenNotPaused onlyCounterParty(id) {
+    function complete(uint256 id) internal onlyCounterParty(id) {
         Swap storage swap = swaps[id];
         IERC20 initiatorToken = IERC20(swap.initiatorToken);
         IERC20 counterPartyToken = IERC20(swap.counterPartyToken);
@@ -99,7 +89,7 @@ contract SwapERC20 is Ownable, Pausable {
         uint256 counterPartyAmount = swap.counterPartyAmount;
         address counterParty = swap.counterParty;
         address initiator = swap.initiator;
-        
+
         //transfer to fulfiller
         require(
             initiatorToken.transferFrom(
@@ -110,7 +100,7 @@ contract SwapERC20 is Ownable, Pausable {
             "Transfer failed"
         );
 
-          //transfer to initiator
+        //transfer to initiator
         require(
             counterPartyToken.transferFrom(
                 msg.sender,
@@ -124,14 +114,13 @@ contract SwapERC20 is Ownable, Pausable {
         emit SwapCompleted(id);
     }
 
-    function getSwaps(address account) external view returns (Swap[] memory) {
+    function getSwaps(address account) internal view returns (Swap[] memory) {
         uint256[] memory swapIds = swapIdsByAddress[account];
         Swap[] memory userSwaps = new Swap[](swapIds.length);
 
         for (uint256 i = 0; i < swapIds.length; i++) {
             userSwaps[i] = swaps[swapIds[i]];
         }
-
         return userSwaps;
     }
 }

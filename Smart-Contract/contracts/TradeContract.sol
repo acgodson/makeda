@@ -6,14 +6,16 @@ import "./helpers/TradeHelper.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract TradeContract is TradeHelper {
-    mapping(uint256 => address) public swapContracts; // Mapping for swap contracts
+import "./swaps/SwapERC20.sol";
 
-    constructor() {
-        // Set the swap contract addresses in the constructor
-        swapContracts[0] = address(0xDFE38148EF1115F2f8889A239dEEe1DC781562e1); // erc20
-        swapContracts[1] = address(0x0563E89b08953C6eC9A494b6B0acf572A9B76430); // erc721
-    }
+contract TradeContract is TradeHelper, SwapERC20 {
+    // struct Match {
+    //     address user;
+    //     uint256 coverage;
+    // }
+
+    // mapping(uint256 => Match) public matches;
+    uint256 public matchCounter;
 
     // Submit a trade order
     function submitTradeOrder(
@@ -43,23 +45,16 @@ contract TradeContract is TradeHelper {
             // Implement custom transfer
         }
 
-        // Calculate exchange rate
+        //get exchange rate from pairaddress, use an oracle in production
+        uint256 exchangeRate = getExchangeRate(traderToken, counterPartyToken);
+
+        // Get price of counterParty amount based on the rate
         counterPartyAmount = getAmounts(
             traderToken,
             counterPartyToken,
             traderAmount
         );
-
-        // Find the best match initially
-        (
-            uint256 highestCoverage,
-            uint256 selectedFulfillerIndex
-        ) = findBestMatch(
-                tradeCounter,
-                traderToken,
-                counterPartyToken,
-                traderAmount
-            );
+        require(counterPartyAmount > 0, "unable to calculate exchange amount");
 
         // Create a new trade
         Trade memory newTrade = Trade({
@@ -75,22 +70,47 @@ contract TradeContract is TradeHelper {
 
         trades[newTrade.id] = newTrade;
 
-        // Perform trade matching and updates
+        // Find the best match after creating the trade
+        (
+            uint256 highestCoverage,
+            uint256 selectedFulfillerIndex
+        ) = findBestMatch(newTrade.id, counterPartyAmount);
+
+        // // Perform trade matching and updates
         while (
             highestCoverage > 0 &&
             newTrade.balance > 0 &&
-            selectedFulfillerIndex != 0 // Check if there is a valid match
+            selectedFulfillerIndex != tradeCounter // Check if there is a valid match
         ) {
             Trade storage existingTrade = trades[selectedFulfillerIndex];
             address selectedFulfiller = existingTrade.initiator;
 
             // Update the trade states and balances
             updateTradeStates(
-                newTrade,
-                existingTrade,
+                newTrade.id,
+                existingTrade.id,
                 highestCoverage,
+                exchangeRate
+            );
+
+            uint256 newSwapID = begin(
+                newTrade.initiator,
+                existingTrade.initiator,
+                newTrade.initiatorToken,
+                newTrade.counterPartyToken,
+                highestCoverage,
+                exchangeRate
+            );
+
+            // Create pending action with the retrieved swap ID (erc20)
+            createPendingAction(
+                newTrade.id,
+                existingTrade.id,
                 msg.sender,
-                swapContracts[0] // Testing with erc20 swap
+                0,
+                newSwapID,
+                highestCoverage,
+                highestCoverage
             );
 
             emit TradeOrderSubmitted(
@@ -102,9 +122,7 @@ contract TradeContract is TradeHelper {
             // Find the next best match only if there's a remaining balance
             if (newTrade.balance > 0) {
                 (highestCoverage, selectedFulfillerIndex) = findBestMatch(
-                    tradeCounter,
-                    traderToken,
-                    counterPartyToken,
+                    newTrade.id,
                     traderAmount
                 );
                 // If there are no more matches, break out of the loop
@@ -118,7 +136,7 @@ contract TradeContract is TradeHelper {
         }
 
         // If there's any remaining balance, set trade state to PARTIAL
-        if (newTrade.balance > 0 && selectedFulfillerIndex == 0) {
+        if (newTrade.balance > 0) {
             newTrade.state = State.PARTIAL;
         }
 
@@ -127,13 +145,11 @@ contract TradeContract is TradeHelper {
     }
 
     // Complete a swap
-    function completeSwap(uint256 pendingActionId) external {
-        PendingAction storage pendingAction = pendingActions[pendingActionId];
+    function completeSwap(address fulfiller) external {
+        PendingAction storage pendingAction = pendingActions[fulfiller];
         Trade storage trade = trades[pendingAction.tradeId];
         Trade storage fulfillerTrade = trades[pendingAction.fulfillerTradeId];
-        address swapContractAddress = swapContracts[
-            uint256(pendingAction.tokenIndex)
-        ];
+
         require(
             pendingAction.fulfiller == msg.sender,
             "Only fulfiller can complete the swap"
@@ -146,10 +162,10 @@ contract TradeContract is TradeHelper {
 
         // For Test, let's work with just ERC20 swap
         uint256 swapID = pendingAction.swapID;
-        SwapERC20(swapContractAddress).complete(swapID);
+        complete(swapID);
 
         // Remove completed pending action
-        delete pendingActions[pendingActionId];
+        delete pendingActions[fulfiller];
 
         // Update trade states
         if (fulfillerTrade.balance == 0) {
@@ -168,8 +184,6 @@ contract TradeContract is TradeHelper {
             amount: pendingAction.fulfillerAmount,
             payer: fulfillerTrade.initiator
         });
-
-        emit SwapCompleted(pendingAction.tradeId, msg.sender);
     }
 
     // Get the counterparty amount for a given trade
@@ -188,13 +202,5 @@ contract TradeContract is TradeHelper {
         uint256 rate
     ) external {
         setExchangeRate(tokenA, tokenB, rate);
-    }
-
-    // Get the exchange rate between two tokens
-    function getExchangeRate(
-        address tokenA,
-        address tokenB
-    ) external view returns (uint256) {
-        return exchangeRates[getPairAddress(tokenA, tokenB)];
     }
 }
