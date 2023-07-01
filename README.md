@@ -53,13 +53,11 @@ npx hardhat test
 | m_BTC         | ERC20    | 0x37bEcc8ed3EaFB5b8db58EDb4ee11494181a0276 |
 | m_ETH         | ERC20    | 0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4 |
 | m_NFT         | ERC721   | 0x4ce12d9a1C69B32C69f79Fa94A5700308D5F6782 |
-| SwapERC20     | Custom   | 0xDFE38148EF1115F2f8889A239dEEe1DC781562e1 |
-| SwapERC721    | Custom   | 0x0563E89b08953C6eC9A494b6B0acf572A9B76430 |
-| TradeContract | Custom   | 0x04bB38a35eAc3b7FA724b6Dde1638EC2D682Ed7F |
+| TradeContract | Custom   | 0x1f27FD5DA3c691f3410301e10530757b4eeD95dF |
 
-## More Screenshots 
+## More Screenshots
+
 Clientside development
 ![UI](Snapshots/bg2.png)
 ![UI](Snapshots/bg3.png)
 ![UI](Snapshots/bg4.png)
-

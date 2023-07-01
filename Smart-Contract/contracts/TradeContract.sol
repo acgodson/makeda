@@ -9,24 +9,15 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "./swaps/SwapERC20.sol";
 
 contract TradeContract is TradeHelper, SwapERC20 {
-    // struct Match {
-    //     address user;
-    //     uint256 coverage;
-    // }
-
-    // mapping(uint256 => Match) public matches;
-    uint256 public matchCounter;
-
     // Submit a trade order
     function submitTradeOrder(
         uint256 tokenIndex,
         address traderToken,
         uint256 traderAmount,
         address counterPartyToken
-    )
-        external
-        returns (uint256 id, uint256 counterPartyAmount, uint256 balance)
-    {
+    ) external returns (uint256) {
+        uint256 counterPartyAmount;
+        uint256 traderAmountEquivalent;
         require(traderAmount > 0, "Invalid amount");
 
         // Transfer traderToken to the contract
@@ -45,16 +36,12 @@ contract TradeContract is TradeHelper, SwapERC20 {
             // Implement custom transfer
         }
 
-        //get exchange rate from pairaddress, use an oracle in production
-        uint256 exchangeRate = getExchangeRate(traderToken, counterPartyToken);
-
         // Get price of counterParty amount based on the rate
         counterPartyAmount = getAmounts(
             traderToken,
             counterPartyToken,
             traderAmount
         );
-        require(counterPartyAmount > 0, "unable to calculate exchange amount");
 
         // Create a new trade
         Trade memory newTrade = Trade({
@@ -83,43 +70,34 @@ contract TradeContract is TradeHelper, SwapERC20 {
             selectedFulfillerIndex != tradeCounter // Check if there is a valid match
         ) {
             Trade storage existingTrade = trades[selectedFulfillerIndex];
-            address selectedFulfiller = existingTrade.initiator;
 
-            // Update the trade states and balances
-            updateTradeStates(
-                newTrade.id,
-                existingTrade.id,
-                highestCoverage,
-                exchangeRate
+            //get exchange rate from pairaddress, use an oracle in production
+
+            uint256 exchangeRate = getExchangeRate(
+                newTrade.initiatorToken,
+                newTrade.counterPartyToken
             );
+            uint256 traderAmountEquivalent = (highestCoverage * (10 ** 18)) /
+                exchangeRate; // Exchange rate with 18 decimal places
 
-            uint256 newSwapID = begin(
+            require(traderAmountEquivalent > 0, "invalid amount");
+
+            // //begin a swap
+            begin(
                 newTrade.initiator,
                 existingTrade.initiator,
                 newTrade.initiatorToken,
                 newTrade.counterPartyToken,
                 highestCoverage,
-                exchangeRate
-            );
-
-            // Create pending action with the retrieved swap ID (erc20)
-            createPendingAction(
                 newTrade.id,
                 existingTrade.id,
-                msg.sender,
-                0,
-                newSwapID,
-                highestCoverage,
-                highestCoverage
+                traderAmountEquivalent
             );
 
-            emit TradeOrderSubmitted(
-                tradeCounter,
-                msg.sender,
-                selectedFulfiller
-            );
+            // // Update the trade states and balances
+            updateTradeStates(newTrade.id, existingTrade.id, highestCoverage);
 
-            // Find the next best match only if there's a remaining balance
+            //     // Find the next best match only if there's a remaining balance
             if (newTrade.balance > 0) {
                 (highestCoverage, selectedFulfillerIndex) = findBestMatch(
                     newTrade.id,
@@ -135,64 +113,139 @@ contract TradeContract is TradeHelper, SwapERC20 {
             }
         }
 
-        // If there's any remaining balance, set trade state to PARTIAL
+        // // If there's any remaining balance, set trade state to PARTIAL
         if (newTrade.balance > 0) {
             newTrade.state = State.PARTIAL;
         }
 
         tradeCounter++;
-        return (newTrade.id, newTrade.counterPartyAmount, newTrade.balance);
+        emit TradeOrderSubmitted(newTrade.id, msg.sender);
+        return traderAmountEquivalent;
     }
 
-    // Complete a swap
-    function completeSwap(address fulfiller) external {
-        PendingAction storage pendingAction = pendingActions[fulfiller];
-        Trade storage trade = trades[pendingAction.tradeId];
-        Trade storage fulfillerTrade = trades[pendingAction.fulfillerTradeId];
+    // Get Pending swap orders
+
+    function getPendingSwaps() external view returns (Swap[] memory) {
+        uint256[] memory swapIds = swapIdsByAddress[msg.sender];
+        uint256 pendingSwapCount = 0;
+
+        // Count the number of pending swaps
+        for (uint256 i = 0; i < swapIds.length; i++) {
+            uint256 id = swapIds[i];
+            if (
+                swaps[id].counterParty == msg.sender &&
+                swaps[id].initiated &&
+                !swaps[id].completed
+            ) {
+                pendingSwapCount++;
+            }
+        }
+
+        // Initialize the array of pending swaps
+        Swap[] memory pendingSwaps = new Swap[](pendingSwapCount);
+        uint256 index = 0;
+
+        // Retrieve the pending swaps
+        for (uint256 i = 0; i < swapIds.length; i++) {
+            uint256 id = swapIds[i];
+            if (
+                swaps[id].counterParty == msg.sender &&
+                swaps[id].initiated &&
+                !swaps[id].completed
+            ) {
+                pendingSwaps[index] = swaps[id];
+                index++;
+            }
+        }
+
+        return pendingSwaps;
+    }
+
+    // Complete a swap order
+    function completeSwap(uint256 id) external {
+        Swap storage swap = swaps[id];
+        Trade storage counterPartyTrade = trades[swap.counterPartyTradeID];
+        Trade storage initiatorTrade = trades[swap.initiatorTradeID];
 
         require(
-            pendingAction.fulfiller == msg.sender,
+            swap.counterParty == msg.sender,
             "Only fulfiller can complete the swap"
         );
-        require(
-            trade.state != State.FINISHED &&
-                fulfillerTrade.state != State.FINISHED,
-            "Trade already completed"
-        );
+        require(swap.completed == false, "Trade already completed");
 
         // For Test, let's work with just ERC20 swap
-        uint256 swapID = pendingAction.swapID;
-        complete(swapID);
-
-        // Remove completed pending action
-        delete pendingActions[fulfiller];
-
+        complete(id);
         // Update trade states
-        if (fulfillerTrade.balance == 0) {
-            fulfillerTrade.state = State.FINISHED;
+        if (counterPartyTrade.balance == 0) {
+            counterPartyTrade.state = State.FINISHED;
+        } else {
+            counterPartyTrade.state = State.PARTIAL;
         }
-        if (trade.balance == 0) {
-            trade.state = State.FINISHED;
+        if (initiatorTrade.balance == 0) {
+            initiatorTrade.state = State.FINISHED;
+        } else {
+            initiatorTrade.state = State.PARTIAL;
         }
 
         // Update fulfillments
-        fulfillments[fulfillerTrade.id] = Fulfillment({
-            amount: pendingAction.traderAmount,
-            payer: trade.initiator
+        fulfillments[swap.counterPartyTradeID] = Fulfillment({
+            amount: swap.initiatorAmount,
+            payer: swap.initiator
         });
-        fulfillments[trade.id] = Fulfillment({
-            amount: pendingAction.fulfillerAmount,
-            payer: fulfillerTrade.initiator
+        fulfillments[swap.initiatorTradeID] = Fulfillment({
+            amount: swap.counterPartyAmount,
+            payer: swap.counterParty
         });
     }
 
-    // Get the counterparty amount for a given trade
-    function getCounterPartyAmount(
-        address traderToken,
-        address counterPartyToken,
-        uint256 traderAmount
-    ) external view returns (uint256) {
-        return getAmounts(traderToken, counterPartyToken, traderAmount);
+    function cancelSwap(uint256 id) external {
+        Swap storage swap = swaps[id];
+        Trade storage counterPartyTrade = trades[swap.counterPartyTradeID];
+        Trade storage initiatorTrade = trades[swap.initiatorTradeID];
+
+        require(
+            swap.initiator == msg.sender || swap.counterParty == msg.sender,
+            "Only initiator or counterParty can cancel the swap"
+        );
+        require(swap.completed == false, "Swap already completed");
+
+        IERC20 initiatorToken = IERC20(swap.initiatorToken);
+        IERC20 counterPartyToken = IERC20(swap.counterPartyToken);
+
+        uint256 initiatorAmount = swap.initiatorAmount;
+        uint256 counterPartyAmount = swap.counterPartyAmount;
+        address counterParty = swap.counterParty;
+        address initiator = swap.initiator;
+
+        // Transfer tokens from the contract to the initiator
+        require(
+            initiatorToken.transferFrom(
+                address(this),
+                initiator,
+                initiatorAmount
+            ),
+            "Transfer failed"
+        );
+
+        // Transfer tokens from the contract to the counterParty
+        require(
+            counterPartyToken.transferFrom(
+                address(this),
+                counterParty,
+                counterPartyAmount
+            ),
+            "Transfer failed"
+        );
+
+        //Update balances
+        counterPartyTrade.balance =
+            counterPartyTrade.balance +
+            swap.counterPartyAmount;
+        initiatorTrade.balance = initiatorTrade.balance + swap.initiatorAmount;
+
+        // Delete the swap from the mapping
+        delete swaps[id];
+        emit SwapCancelled(id);
     }
 
     // Update the exchange rate between two tokens

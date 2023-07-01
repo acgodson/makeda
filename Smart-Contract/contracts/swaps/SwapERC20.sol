@@ -10,6 +10,8 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 contract SwapERC20 {
     struct Swap {
         uint256 id;
+        uint256 initiatorTradeID;
+        uint256 counterPartyTradeID;
         address initiator;
         address counterParty;
         address initiatorToken;
@@ -21,7 +23,7 @@ contract SwapERC20 {
     }
 
     mapping(uint256 => Swap) public swaps;
-    mapping(address => uint256[]) private swapIdsByAddress;
+    mapping(address => uint256[]) public swapIdsByAddress;
 
     uint256 public swapCounter;
 
@@ -31,6 +33,7 @@ contract SwapERC20 {
         address indexed counterParty
     );
     event SwapCompleted(uint256 indexed id);
+    event SwapCancelled(uint256 indexed id);
 
     modifier onlyInitiator(uint256 id) {
         require(swaps[id].initiator == msg.sender, "Unauthorized");
@@ -51,17 +54,19 @@ contract SwapERC20 {
         address initiatorToken,
         address counterPartyToken,
         uint256 highestCoverage,
-        uint256 exchangeRate
-    ) internal returns (uint256) {
-        require(initiatorParty != address(0), "Invalid initiator address");
-        require(counterParty != address(0), "Invalid counterParty address");
-        require(highestCoverage > 0, "Invalid amount");
-
-        uint256 traderAmountEquivalent = highestCoverage / exchangeRate;
+        uint256 initiatorTradeID,
+        uint256 counterPartyTradeID,
+        uint256 traderAmountEquivalent
+    ) internal {
 
         uint256 id = swapCounter;
+
+        //get exchange rate from pairaddress, use an oracle in production
+       
         Swap memory swap = Swap({
             id: id,
+            initiatorTradeID: initiatorTradeID,
+            counterPartyTradeID: counterPartyTradeID,
             initiator: initiatorParty,
             counterParty: counterParty,
             initiatorToken: initiatorToken,
@@ -73,11 +78,11 @@ contract SwapERC20 {
         });
         swaps[swapCounter] = swap;
 
-        swapIdsByAddress[initiatorParty].push(id);
+        swapIdsByAddress[counterParty].push(id);
+        swapIdsByAddress[counterParty].push(id);
 
         emit SwapBegun(id, initiatorParty, counterParty);
         swapCounter++;
-        return id; // Return the trade ID
     }
 
     function complete(uint256 id) internal onlyCounterParty(id) {
@@ -90,14 +95,23 @@ contract SwapERC20 {
         address counterParty = swap.counterParty;
         address initiator = swap.initiator;
 
-        //transfer to fulfiller
+        // transfer to fulfiller
         require(
             initiatorToken.transferFrom(
-                msg.sender,
+                address(this),
                 counterParty,
                 initiatorAmount
             ),
-            "Transfer failed"
+            "Transfer to counterParty failed"
+        );
+
+        require(
+            initiatorToken.transferFrom(
+                address(this),
+                counterParty,
+                initiatorAmount
+            ),
+            "Transfer to initiator failed"
         );
 
         //transfer to initiator

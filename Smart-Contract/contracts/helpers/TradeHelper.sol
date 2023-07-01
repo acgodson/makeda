@@ -36,10 +36,9 @@ contract TradeHelper {
     }
 
     struct PendingAction {
-        uint256 tradeId;
-        uint256 fulfillerTradeId;
-        address fulfiller;
-        uint256 tokenIndex;
+        uint256 id;
+        uint256 tradeID;
+        uint256 fulfillerTradeID;
         uint256 swapID;
         uint256 fulfillerAmount;
         uint256 traderAmount;
@@ -51,16 +50,13 @@ contract TradeHelper {
     }
 
     mapping(uint256 => Trade) public trades; // Mapping for trades
-    mapping(address => PendingAction) public pendingActions; // Mapping for pending actions
+    mapping(uint256 => PendingAction) public pendingActions; // Mapping for pending actions
     mapping(uint256 => Fulfillment) public fulfillments;
 
     uint256 public tradeCounter;
+    uint256 public ActionCounter;
 
-    event TradeOrderSubmitted(
-        uint256 tradeId,
-        address initiator,
-        address counterParty
-    );
+    event TradeOrderSubmitted(uint256 tradeId, address initiator);
     mapping(address => uint256) public exchangeRates; // Mapping for exchange rates
 
     function setExchangeRate(
@@ -133,27 +129,6 @@ contract TradeHelper {
         return scaledAmountOut;
     }
 
-    function createPendingAction(
-        uint256 tradeId,
-        uint256 fulfillerTradeId,
-        address fulfiller,
-        uint256 tokenIndex,
-        uint256 swapID,
-        uint256 fulfillerAmount,
-        uint256 traderAmount
-    ) internal {
-        PendingAction memory newPendingAction = PendingAction(
-            tradeId,
-            fulfillerTradeId,
-            fulfiller,
-            tokenIndex,
-            swapID,
-            fulfillerAmount,
-            traderAmount
-        );
-        pendingActions[fulfiller] = newPendingAction;
-    }
-
     function findBestMatch(
         uint256 tradeId,
         uint256 counterPartyAmount
@@ -203,18 +178,19 @@ contract TradeHelper {
     function updateTradeStates(
         uint256 newTradeID,
         uint256 existingTradeID,
-        uint256 highestCoverage,
-        uint256 exchangeRate
+        uint256 highestCoverage
     ) internal {
         Trade storage newTrade = trades[newTradeID];
         Trade storage existingTrade = trades[existingTradeID];
 
-        uint256 traderAmountEquivalent = highestCoverage / exchangeRate;
+        uint256 exchangeRate = getExchangeRate(newTrade.initiatorToken, newTrade.counterPartyToken);
+        uint256 traderAmountEquivalent = (highestCoverage * (10 ** 18)) / exchangeRate;
+
 
         newTrade.balance = newTrade.balance - traderAmountEquivalent;
+        existingTrade.balance = existingTrade.balance - highestCoverage;
         newTrade.state = State.BEGUN;
         existingTrade.state = State.BEGUN;
-        existingTrade.balance = existingTrade.balance - highestCoverage;
     }
 
     // Get the exchange rate between two tokens
