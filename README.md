@@ -45,7 +45,25 @@ npx hardhat test
 ![Test Contract](Snapshots/hardhat.png)
 ![UI](Snapshots/Screenshot%202023-06-29%20at%2014.03.58.png)
 
-## Addresses
+## Smart Contract
+
+The Solidity smart contract allows users to ``submit trade order``s, ``perform swaps``, and ``cancel swaps``. It also includes some helper functions for the ``ATE matching`` and ``exchange rate calculation``.
+
+The ``TradeHelper`` contract provides helper functions for trade matching and exchange rate calculation. The`` SwapERC2``0 contract provides functions for initiating and completing swaps.
+
+Summary of the main functions:
+
+- **submitTradeOrder**: Allows a user to submit a trade order. It transfers the trader's tokens to the escrow contract, calculates the counterparty amount based on the exchange rate, creates a new trade, and finds the best match for the trade. It then performs the trade matching and updates the trade states and balances.
+
+- **getPendingSwaps**: Returns an array of pending swaps for a given user.
+
+- **completeSwap**: Allows the counterparty of a swap to complete the swap. It marks the swap as completed, updates the trade states, and records the fulfillments.
+
+- **cancelSwap**: Allows the initiator or counterparty of a swap to cancel the swap. It transfers the tokens back to the respective parties, updates the trade balances, and deletes the swap.
+
+- **updateExchangeRate**: Allows the owner of the contract to update the exchange rate between two tokens.
+
+In Summary, the Makeda Trade Contract provides a basic framework for submitting  P2P trade orders and performing swaps between tokens, and can be modified to fit different use cases such *DEX, aunction platorms etc*
 
 | Contract      | Standard | Address                                    |
 | ------------- | -------- | ------------------------------------------ |

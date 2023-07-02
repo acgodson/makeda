@@ -77,7 +77,8 @@ contract TradeContract is TradeHelper, SwapERC20 {
                 newTrade.initiatorToken,
                 newTrade.counterPartyToken
             );
-            uint256 traderAmountEquivalent = (highestCoverage * (10 ** 18)) /
+            traderAmountEquivalent =
+                (highestCoverage * (10 ** 18)) /
                 exchangeRate; // Exchange rate with 18 decimal places
 
             require(traderAmountEquivalent > 0, "invalid amount");
