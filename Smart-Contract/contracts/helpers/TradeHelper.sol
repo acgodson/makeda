@@ -3,7 +3,6 @@
 pragma solidity ^0.8.0;
 
 import "../swaps/SwapERC20.sol";
-import "../swaps/SwapERC721.sol";
 import "../swaps/CustomSwap.sol";
 import "./PriorityQueue.sol";
 
@@ -26,6 +25,7 @@ contract TradeHelper is PriorityQueue, SwapERC20 {
         uint256 counterPartyAmount;
         uint256 balance;
         State state;
+        uint256 timestamp;
     }
 
     struct Fulfillment {
@@ -52,6 +52,7 @@ contract TradeHelper is PriorityQueue, SwapERC20 {
 
         uint256 bestMatchId;
         uint256 highestPriority = 0;
+        uint256 earliestTimestamp = block.timestamp; // Initialize with the current timestamp
 
         for (uint256 i = 0; i < tradeQueue.length; i++) {
             SortedTrade storage sortedTrade = tradeQueue[i];
@@ -63,8 +64,16 @@ contract TradeHelper is PriorityQueue, SwapERC20 {
                 existingTrade.state != State.COMPLETED &&
                 sortedTrade.counterPartyAmount > highestPriority
             ) {
-                bestMatchId = sortedTrade.id;
-                highestPriority = sortedTrade.counterPartyAmount;
+                if (sortedTrade.counterPartyAmount > highestPriority) {
+                    // Higher priority, update the best match
+                    bestMatchId = sortedTrade.id;
+                    highestPriority = sortedTrade.counterPartyAmount;
+                    earliestTimestamp = existingTrade.timestamp;
+                } else if (existingTrade.timestamp < earliestTimestamp) {
+                    // Same priority, check timestamp for earlier trade
+                    bestMatchId = sortedTrade.id;
+                    earliestTimestamp = existingTrade.timestamp;
+                }
             }
         }
 

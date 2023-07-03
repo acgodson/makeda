@@ -4,17 +4,34 @@ pragma solidity ^0.8.0;
 import "./helpers/PriorityQueue.sol";
 import "./helpers/TradeHelper.sol";
 import "./swaps/SwapERC20.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-pragma solidity ^0.8.0;
+contract TradeContract is TradeHelper, Initializable {
+    // constructor() {
+    //hardcorded for demo
+    // tokenPrices[
+    //     address(0xe7dCfABAFBe09D7D9081E44de4Ad7203f88BF28F)
+    // ] = 30516;
+    // tokenPrices[address(0xd85b13920b03d6998700cf52f0F2cdF702f0896E)] = 1852;
+    // tokenPrices[
+    //     address(0x6DA84c226162aBf933c18b5Ca6bC3577584bee86)
+    // ] = 30516;
+    // tokenPrices[address(0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4)] = 1852;
+    // }
 
-contract TradeContract is TradeHelper {
+    function initialize(
+        address[] memory _tokens,
+        uint256[] memory _prices
+    ) public initializer {
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            address token = _tokens[i];
+            uint256 price = _prices[i];
+            require(token != address(0), "Invalid token address");
+            require(price > 0, "Invalid price");
 
-    constructor() {
+            tokenPrices[token] = price;
+        }
         tradeCounter = 1;
-        tokenPrices[
-            address(0x6DA84c226162aBf933c18b5Ca6bC3577584bee86)
-        ] = 30516;
-        tokenPrices[address(0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4)] = 1852;
     }
 
     function submitTradeOrder(
@@ -50,7 +67,8 @@ contract TradeContract is TradeHelper {
             counterPartyToken: counterPartyToken,
             counterPartyAmount: priority,
             balance: initiatorAmount,
-            state: State.BEGUN
+            state: State.BEGUN,
+            timestamp: block.timestamp
         });
 
         trades[newTrade.id] = newTrade;

@@ -6,7 +6,7 @@
 
 ## Description
 
-### The Makeda platform facilitates peer-2-peer trading of ERC20 tokens using a priority-based matching system for automated trade execution (ATE).
+### The Makeda contract facilitates peer-2-peer trading of ERC20 tokens using a priority-based matching system for automated trade execution (ATE).
 
 <br/>
 Users submit trade orders, which are then matched with existing orders based on their priority level. The contract supports both partial and complete trades, enabling users to specify the desired quantity of tokens for each trade.
@@ -56,9 +56,3 @@ The Solidity smart contract allows users to `submit trade orders`, `perform swap
 
 In Summary, the Makeda Trade Contract provides a basic framework for submitting P2P trade orders and performing swaps between tokens, and can be modified to fit different use cases such _DEX, aunction platorms etc_
 
-## More Screenshots
-
-Clientside development
-![UI](Snapshots/bg2.png)
-![UI](Snapshots/bg3.png)
-![UI](Snapshots/bg4.png)

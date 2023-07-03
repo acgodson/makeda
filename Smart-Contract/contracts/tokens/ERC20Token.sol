@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract TestERC20 is ERC20 {
-    constructor() ERC20("Makeda ETH", "m_") {
+    constructor() ERC20("Makeda ETH", "m_ETH") {
         uint256 amountPerAddress = 500; // Amount to be assigned to each address
         uint256 decimals = 18; // Number of decimals for the token
 
