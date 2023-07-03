@@ -14,10 +14,9 @@ Users submit trade orders, which are then matched with existing orders based on 
 ## Features
 
 - Peer-to-peer approval
-- Order size Priority  matching
+- Order size Priority matching
 - Time Priority matching
 - Price Priority matching
-
 
 ## Requirements
 
@@ -67,7 +66,7 @@ In Summary, the Makeda Trade Contract provides a basic framework for submitting 
 | m_BTC         | ERC20    | 0x37bEcc8ed3EaFB5b8db58EDb4ee11494181a0276 |
 | m_ETH         | ERC20    | 0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4 |
 | m_NFT         | ERC721   | 0x4ce12d9a1C69B32C69f79Fa94A5700308D5F6782 |
-| TradeContract | Custom   | 0x1b640b7a0381022A3aEd5121b855Eb1eFA3Ae363 |
+| TradeContract | Custom   | 0xF9597a12bA5f5850c09F31bb2388c24fADFcD621 |
 
 ## More Screenshots
 
