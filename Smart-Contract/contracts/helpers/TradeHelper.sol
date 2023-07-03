@@ -37,6 +37,7 @@ contract TradeHelper is PriorityQueue, SwapERC20 {
     mapping(uint256 => Trade) public trades;
     mapping(bytes32 => uint256[]) private priorityIndex;
     mapping(address => uint256) public tokenPrices;
+    mapping(uint256 => Fulfillment[]) public fulfillments;
 
     function findBestMatch(
         uint256 tradeId

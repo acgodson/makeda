@@ -8,7 +8,6 @@ import "./swaps/SwapERC20.sol";
 pragma solidity ^0.8.0;
 
 contract TradeContract is TradeHelper {
-    mapping(uint256 => Fulfillment[]) public fulfillments;
 
     constructor() {
         tradeCounter = 1;
