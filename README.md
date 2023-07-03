@@ -9,7 +9,7 @@
 ### The Makeda platform facilitates peer-2-peer trading of ERC20 tokens using a priority-based matching system for automated trade execution (ATE).
 
 <br/>
-Users to submit trade orders, which are then matched with existing orders based on their priority level. The contract supports both partial and complete trades, enabling users to specify the desired quantity of tokens for each trade.
+Users submit trade orders, which are then matched with existing orders based on their priority level. The contract supports both partial and complete trades, enabling users to specify the desired quantity of tokens for each trade.
 
 ## Features
 

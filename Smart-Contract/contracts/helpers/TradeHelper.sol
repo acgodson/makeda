@@ -110,7 +110,7 @@ contract TradeHelper is PriorityQueue, SwapERC20 {
             trade1.initiator,
             trade2.initiator,
             trade1.initiatorToken,
-            trade1.initiatorToken,
+            trade2.initiatorToken,
             fulfillerAmount,
             fulfillerAmountEquivalent,
             trade1.id,

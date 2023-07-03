@@ -71,5 +71,7 @@ describe("Simple Makeda Contract", function () {
 
     const swapReceipt = await completeSwap.wait();
     console.log("swap completed", swapReceipt.transactionHash);
+    const swap = await tradeContract.swaps(0);
+    console.log(swap);
   }).timeout(600000000000);
 });
