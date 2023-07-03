@@ -5,43 +5,27 @@ pragma solidity ^0.8.0;
 import "../swaps/SwapERC20.sol";
 import "../swaps/SwapERC721.sol";
 import "../swaps/CustomSwap.sol";
+import "./PriorityQueue.sol";
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract TradeHelper {
+contract TradeHelper is PriorityQueue, SwapERC20 {
     using SafeMath for uint256;
-
-    enum TokenType {
-        ERC20,
-        ERC721,
-        CUSTOM
-    }
-
     enum State {
-        PENDING,
         BEGUN,
         PARTIAL,
-        FINISHED
+        COMPLETED
     }
 
     struct Trade {
         uint256 id;
         address initiator;
-        address initiatorToken;
         uint256 initiatorAmount;
+        address initiatorToken;
         address counterPartyToken;
         uint256 counterPartyAmount;
         uint256 balance;
         State state;
-    }
-
-    struct PendingAction {
-        uint256 id;
-        uint256 tradeID;
-        uint256 fulfillerTradeID;
-        uint256 swapID;
-        uint256 fulfillerAmount;
-        uint256 traderAmount;
     }
 
     struct Fulfillment {
@@ -49,155 +33,115 @@ contract TradeHelper {
         address payer;
     }
 
-    mapping(uint256 => Trade) public trades; // Mapping for trades
-    mapping(uint256 => PendingAction) public pendingActions; // Mapping for pending actions
-    mapping(uint256 => Fulfillment) public fulfillments;
-
     uint256 public tradeCounter;
-    uint256 public ActionCounter;
-
-    event TradeOrderSubmitted(uint256 tradeId, address initiator);
-    mapping(address => uint256) public exchangeRates; // Mapping for exchange rates
-
-    function setExchangeRate(
-        address tokenA,
-        address tokenB,
-        uint256 rate
-    ) internal {
-        require(rate > 0, "Exchange rate must be greater than zero");
-        require(tokenA != address(0), "Invalid token A address");
-        require(tokenB != address(0), "Invalid token B address");
-
-        address pairAddress = getPairAddress(tokenA, tokenB);
-        require(pairAddress != address(0), "Invalid token pair");
-
-        exchangeRates[pairAddress] = rate;
-    }
-
-    function transferTokens(
-        uint256 tokenIndex,
-        address tokenAddress,
-        address recipient,
-        uint256 amount
-    ) internal {
-        TokenType tokenType;
-
-        // Convert the integer tokenType to the corresponding enum value
-        if (tokenIndex == 0) {
-            tokenType = TokenType.ERC20;
-        } else if (tokenIndex == 1) {
-            tokenType = TokenType.ERC721;
-        } else if (tokenIndex == 2) {
-            tokenType = TokenType.CUSTOM;
-        } else {
-            revert("Invalid token type");
-        }
-
-        if (tokenType == TokenType.ERC20) {
-            require(
-                IERC20(tokenAddress).transfer(recipient, amount),
-                "ERC20 transfer failed"
-            );
-        } else if (tokenType == TokenType.ERC721) {
-            // Implement NFT transfer
-        } else if (tokenType == TokenType.CUSTOM) {
-            // Implement custom transfer
-            // Add the appropriate transfer logic here
-        }
-    }
-
-    function getPairAddress(
-        address tokenA,
-        address tokenB
-    ) internal pure returns (address) {
-        return
-            address(
-                uint160(uint256(keccak256(abi.encodePacked(tokenA, tokenB))))
-            ); // Create deterministic pair address
-    }
-
-    function getAmounts(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) internal view returns (uint256) {
-        require(amountIn > 0, "Invalid amount");
-
-        address pairAddress = getPairAddress(tokenIn, tokenOut);
-        uint256 scaledAmountOut = (amountIn * exchangeRates[pairAddress]) /
-            (10 ** 18);
-        return scaledAmountOut;
-    }
+    mapping(uint256 => Trade) public trades;
+    mapping(bytes32 => uint256[]) private priorityIndex;
+    mapping(address => uint256) public tokenPrices;
 
     function findBestMatch(
-        uint256 tradeId,
-        uint256 counterPartyAmount
+        uint256 tradeId
     ) internal view returns (uint256, uint256) {
-        uint256 highestCoverage;
-        uint256 selectedFulfillerIndex;
-        uint256 count = 0; // Number of trades with highest coverage
-        Trade storage currentTrade = trades[tradeId];
+        Trade storage trade = trades[tradeId];
 
-        for (uint256 i = 0; i < tradeCounter; i++) {
-            Trade storage trade = trades[i];
+        bytes32 pairHash = getPairHash(
+            trade.counterPartyToken,
+            trade.initiatorToken
+        );
+        SortedTrade[] storage tradeQueue = pairs[pairHash];
 
+        uint256 bestMatchId;
+        uint256 highestPriority = 0;
+
+        for (uint256 i = 0; i < tradeQueue.length; i++) {
+            SortedTrade storage sortedTrade = tradeQueue[i];
+            Trade storage existingTrade = trades[sortedTrade.id];
+
+            // Matching criteria: Counterparty token and any other conditions
             if (
-                trade.state != State.FINISHED &&
-                currentTrade.initiatorToken == trade.counterPartyToken
+                existingTrade.balance > 0 &&
+                existingTrade.state != State.COMPLETED &&
+                sortedTrade.counterPartyAmount > highestPriority
             ) {
-                // Calculate the coverage as the minimum between counterPartyAmount and trade.balance
-                uint256 coverage = counterPartyAmount < trade.balance
-                    ? counterPartyAmount
-                    : trade.balance;
-
-                if (coverage > highestCoverage) {
-                    highestCoverage = coverage;
-                    selectedFulfillerIndex = i;
-                    count = 1;
-                } else if (coverage == highestCoverage) {
-                    count++;
-                    // Randomly choose between the current selected trade and the new trade with the same coverage
-                    if (count == 2) {
-                        if (
-                            uint256(
-                                keccak256(abi.encodePacked(block.timestamp))
-                            ) %
-                                2 ==
-                            0
-                        ) {
-                            selectedFulfillerIndex = i;
-                        }
-                    }
-                }
+                bestMatchId = sortedTrade.id;
+                highestPriority = sortedTrade.counterPartyAmount;
             }
         }
 
-        return (highestCoverage, selectedFulfillerIndex);
+        if (bestMatchId != 0) {
+            return (bestMatchId, highestPriority);
+        }
+
+        return (0, 0); // No match found
     }
 
-    function updateTradeStates(
-        uint256 newTradeID,
-        uint256 existingTradeID,
-        uint256 highestCoverage
-    ) internal {
-        Trade storage newTrade = trades[newTradeID];
-        Trade storage existingTrade = trades[existingTradeID];
-
-        uint256 exchangeRate = getExchangeRate(newTrade.initiatorToken, newTrade.counterPartyToken);
-        uint256 traderAmountEquivalent = (highestCoverage * (10 ** 18)) / exchangeRate;
-
-
-        newTrade.balance = newTrade.balance - traderAmountEquivalent;
-        existingTrade.balance = existingTrade.balance - highestCoverage;
-        newTrade.state = State.BEGUN;
-        existingTrade.state = State.BEGUN;
-    }
-
-    // Get the exchange rate between two tokens
-    function getExchangeRate(
-        address tokenA,
-        address tokenB
+    function calculatePriority(
+        uint256 initiatorAmount,
+        address counterPartyToken,
+        address initiatorToken
     ) internal view returns (uint256) {
-        return exchangeRates[getPairAddress(tokenA, tokenB)];
+        // Fetch token prices based on token addresses
+        uint256 priority = (initiatorAmount * tokenPrices[counterPartyToken]) /
+            tokenPrices[initiatorToken];
+
+        return priority;
+    }
+
+    function performTrade(
+        uint256 tradeId1,
+        uint256 tradeId2,
+        uint256 availableAmount
+    ) internal {
+        Trade storage trade1 = trades[tradeId1];
+        Trade storage trade2 = trades[tradeId2];
+
+        uint256 fulfillerAmount = trade1.counterPartyAmount > availableAmount
+            ? availableAmount
+            : trade1.counterPartyAmount;
+
+        //find fulfiller's priority equivalent
+        uint256 fulfillerAmountEquivalent = calculatePriority(
+            fulfillerAmount,
+            trade2.counterPartyToken,
+            trade2.initiatorToken
+        );
+
+        //start a pending swap
+        begin(
+            trade1.initiator,
+            trade2.initiator,
+            trade1.initiatorToken,
+            trade1.initiatorToken,
+            fulfillerAmount,
+            fulfillerAmountEquivalent,
+            trade1.id,
+            trade2.id
+        );
+
+        // Update trade1 and trade2 balances
+        trade1.balance -= fulfillerAmount;
+        trade2.balance -= fulfillerAmount;
+
+        // Update trade states
+
+        trade1.state = State.PARTIAL;
+        trade2.state = State.PARTIAL;
+    }
+
+    function getPairHash(
+        address token1,
+        address token2
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(token1, token2));
+    }
+
+    function updateTradeStates(uint256 tradeId1, uint256 tradeId2) internal {
+        Trade storage trade1 = trades[tradeId1];
+        Trade storage trade2 = trades[tradeId2];
+
+        // Update trade states
+        // ...
+        // Update trade states to COMPLETED
+        trade1.state = State.PARTIAL;
+        trade2.state = State.PARTIAL;
     }
 }

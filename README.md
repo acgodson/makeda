@@ -2,26 +2,22 @@
 
 # Makeda
 
-👉 [Video Demo]()
+<!-- 👉 [Video Demo]() -->
 
 ## Description
 
-Peer-2-Peer Trading Platform automated using **ATE** (Adaptive Trade Execution) algorithm for seamless token swaps ( ERC20, ERC721).
+### The Makeda platform facilitates peer-2-peer trading of ERC20 tokens using a priority-based matching system for automated trade execution (ATE).
+
+<br/>
+Users to submit trade orders, which are then matched with existing orders based on their priority level. The contract supports both partial and complete trades, enabling users to specify the desired quantity of tokens for each trade.
 
 ## Features
 
-- Peer-to-peer token swaps
-- Scalable and Flexoble trade matching algorithm
-- Trade ERC20 and ERC721 tokens
-- Customizable token swaps
+- Peer-to-peer approval
+- Order size Priority  matching
+- Time Priority matching
+- Price Priority matching
 
-## Usage
-
-1. Connect your Ethereum wallet (e.g., MetaMask) to the Makeda DEX.
-2. Select the tokens you want to trade, amounts, and desired counterparty token.
-3. Confirm the trade and approve the transaction.
-4. Approve matches and wait for swap completion.
-5. View exchange rate chart and your trade history.
 
 ## Requirements
 
@@ -47,9 +43,9 @@ npx hardhat test
 
 ## Smart Contract
 
-The Solidity smart contract allows users to ``submit trade order``s, ``perform swaps``, and ``cancel swaps``. It also includes some helper functions for the ``ATE matching`` and ``exchange rate calculation``.
+The Solidity smart contract allows users to `submit trade order`s, `perform swaps`, and `cancel swaps`. It also includes some helper functions for the `ATE matching` and `exchange rate calculation`.
 
-The ``TradeHelper`` contract provides helper functions for trade matching and exchange rate calculation. The`` SwapERC2``0 contract provides functions for initiating and completing swaps.
+The `TradeHelper` contract provides helper functions for trade matching and exchange rate calculation. The` SwapERC2`0 contract provides functions for initiating and completing swaps.
 
 Summary of the main functions:
 
@@ -63,7 +59,7 @@ Summary of the main functions:
 
 - **updateExchangeRate**: Allows the owner of the contract to update the exchange rate between two tokens.
 
-In Summary, the Makeda Trade Contract provides a basic framework for submitting  P2P trade orders and performing swaps between tokens, and can be modified to fit different use cases such *DEX, aunction platorms etc*
+In Summary, the Makeda Trade Contract provides a basic framework for submitting P2P trade orders and performing swaps between tokens, and can be modified to fit different use cases such _DEX, aunction platorms etc_
 
 | Contract      | Standard | Address                                    |
 | ------------- | -------- | ------------------------------------------ |
@@ -71,7 +67,7 @@ In Summary, the Makeda Trade Contract provides a basic framework for submitting 
 | m_BTC         | ERC20    | 0x37bEcc8ed3EaFB5b8db58EDb4ee11494181a0276 |
 | m_ETH         | ERC20    | 0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4 |
 | m_NFT         | ERC721   | 0x4ce12d9a1C69B32C69f79Fa94A5700308D5F6782 |
-| TradeContract | Custom   | 0x1f27FD5DA3c691f3410301e10530757b4eeD95dF |
+| TradeContract | Custom   | 0x1b640b7a0381022A3aEd5121b855Eb1eFA3Ae363 |
 
 ## More Screenshots
 

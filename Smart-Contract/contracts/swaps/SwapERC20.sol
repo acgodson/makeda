@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SwapERC20 {
+contract SwapERC20 is Ownable {
     struct Swap {
         uint256 id;
         uint256 initiatorTradeID;
@@ -54,15 +54,11 @@ contract SwapERC20 {
         address initiatorToken,
         address counterPartyToken,
         uint256 highestCoverage,
+        uint256 traderAmountEquivalent,
         uint256 initiatorTradeID,
-        uint256 counterPartyTradeID,
-        uint256 traderAmountEquivalent
+        uint256 counterPartyTradeID
     ) internal {
-
         uint256 id = swapCounter;
-
-        //get exchange rate from pairaddress, use an oracle in production
-       
         Swap memory swap = Swap({
             id: id,
             initiatorTradeID: initiatorTradeID,
@@ -80,12 +76,11 @@ contract SwapERC20 {
 
         swapIdsByAddress[counterParty].push(id);
         swapIdsByAddress[counterParty].push(id);
-
-        emit SwapBegun(id, initiatorParty, counterParty);
         swapCounter++;
+        emit SwapBegun(id, initiatorParty, counterParty);
     }
 
-    function complete(uint256 id) internal onlyCounterParty(id) {
+    function complete(uint256 id) internal {
         Swap storage swap = swaps[id];
         IERC20 initiatorToken = IERC20(swap.initiatorToken);
         IERC20 counterPartyToken = IERC20(swap.counterPartyToken);
@@ -95,33 +90,21 @@ contract SwapERC20 {
         address counterParty = swap.counterParty;
         address initiator = swap.initiator;
 
-        // transfer to fulfiller
+        // // transfer to fulfiller
         require(
-            initiatorToken.transferFrom(
-                address(this),
+            initiatorToken.transfer(
                 counterParty,
                 initiatorAmount
             ),
             "Transfer to counterParty failed"
         );
-
+        // transfer to initiator
         require(
-            initiatorToken.transferFrom(
-                address(this),
-                counterParty,
-                initiatorAmount
-            ),
-            "Transfer to initiator failed"
-        );
-
-        //transfer to initiator
-        require(
-            counterPartyToken.transferFrom(
-                msg.sender,
+            counterPartyToken.transfer(
                 initiator,
                 counterPartyAmount
             ),
-            "Transfer failed"
+            "Transfer to initiator failed"
         );
 
         swap.completed = true;
