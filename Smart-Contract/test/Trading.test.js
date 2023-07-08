@@ -1,11 +1,10 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-// const  traderToken = "0x6DA84c226162aBf933c18b5Ca6bC3577584bee86";
-//  const counterPartyToken = "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4";
-
-const traderToken = "0xe7dCfABAFBe09D7D9081E44de4Ad7203f88BF28F";
-const counterPartyToken = "0xd85b13920b03d6998700cf52f0F2cdF702f0896E";
+const traderToken = "0x6DA84c226162aBf933c18b5Ca6bC3577584bee86";
+const counterPartyToken = "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4";
+// const traderToken = "0x3b70652cB79780cA1bf60a8b34cc589BbeDc00B2";
+// const counterPartyToken = "0x689b5A63B715a3bA57a900B58c74dA60F98F1370";
 
 const tradeABI = [
   {
@@ -147,7 +146,94 @@ const tradeABI = [
     type: "function",
   },
   {
-    inputs: [],
+    inputs: [
+      {
+        internalType: "address",
+        name: "initiatorToken",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "initiatorAmount",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "counterPartyToken",
+        type: "address",
+      },
+    ],
+    name: "getMatches",
+    outputs: [
+      {
+        components: [
+          {
+            internalType: "uint256",
+            name: "id",
+            type: "uint256",
+          },
+          {
+            internalType: "address",
+            name: "initiator",
+            type: "address",
+          },
+          {
+            internalType: "uint256",
+            name: "initiatorAmount",
+            type: "uint256",
+          },
+          {
+            internalType: "address",
+            name: "initiatorToken",
+            type: "address",
+          },
+          {
+            internalType: "address",
+            name: "counterPartyToken",
+            type: "address",
+          },
+          {
+            internalType: "uint256",
+            name: "counterPartyAmount",
+            type: "uint256",
+          },
+          {
+            internalType: "uint256",
+            name: "balance",
+            type: "uint256",
+          },
+          {
+            internalType: "enum TradeHelper.State",
+            name: "state",
+            type: "uint8",
+          },
+          {
+            internalType: "uint256",
+            name: "timestamp",
+            type: "uint256",
+          },
+        ],
+        internalType: "struct TradeHelper.Trade[]",
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "initiatorTradeID",
+        type: "uint256",
+      },
+      {
+        internalType: "address[]",
+        name: "addresses",
+        type: "address[]",
+      },
+    ],
     name: "getPendingSwaps",
     outputs: [
       {
@@ -384,14 +470,19 @@ const tradeABI = [
   {
     inputs: [
       {
-        internalType: "address",
-        name: "initiatorToken",
-        type: "address",
+        internalType: "uint256[]",
+        name: "matchingTradeIds",
+        type: "uint256[]",
       },
       {
         internalType: "uint256",
         name: "initiatorAmount",
         type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "initiatorToken",
+        type: "address",
       },
       {
         internalType: "address",
@@ -692,9 +783,11 @@ describe("Simple Makeda Contract", function () {
   let tradeContract;
   let acc0;
   let acc1;
+  let acc2;
+  let matchingTrades;
 
   beforeEach(async function () {
-    [acc0, acc1] = await ethers.getSigners();
+    [acc0, acc1, acc2] = await ethers.getSigners();
     const TradeFactory = await ethers.getContractFactory("TradeFactory");
     const tradeFactory = await TradeFactory.deploy({
       gasLimit: 5000000,
@@ -724,6 +817,8 @@ describe("Simple Makeda Contract", function () {
     const transferAmount = ethers.utils.parseEther("3");
     const transferAmountUser2 = ethers.utils.parseEther("3");
 
+    matchingTrades = [];
+
     //User one gives allowance and submits trade
     const allowance = ethers.utils.parseUnits("100", 18);
     const TokenContract = await ethers.getContractAt("IERC20", traderToken);
@@ -733,14 +828,17 @@ describe("Simple Makeda Contract", function () {
       { gasLimit: 5000000 }
     );
 
-    const submitTx = await tradeContract.submitTradeOrder(
-      traderToken,
-      transferAmount,
-      counterPartyToken,
-      {
-        gasLimit: 5000000,
-      }
-    );
+    const submitTx = await tradeContract
+      .connect(acc2)
+      .submitTradeOrder(
+        matchingTrades,
+        transferAmount,
+        traderToken,
+        counterPartyToken,
+        {
+          gasLimit: 5000000,
+        }
+      );
 
     const submitTxReceipt = await submitTx.wait();
     console.log(
@@ -748,34 +846,83 @@ describe("Simple Makeda Contract", function () {
       submitTxReceipt.transactionHash
     );
 
-    // User 2 gives allowance and submits the inverse trade
+    //user two
+    await TokenContract.connect(acc1).approve(
+      tradeContract.address,
+      allowance,
+      { gasLimit: 5000000 }
+    );
+
+    const submitTx2 = await tradeContract
+      .connect(acc1)
+      .submitTradeOrder(
+        matchingTrades,
+        transferAmount,
+        traderToken,
+        counterPartyToken,
+        {
+          gasLimit: 5000000,
+        }
+      );
+
+    const submitTxReceiptUser2 = await submitTx2.wait();
+    console.log(
+      "Second trade initiated. Hash",
+      submitTxReceiptUser2.transactionHash
+    );
+
+    // User 3
     const TokenContract2 = await ethers.getContractAt(
       "IERC20",
       counterPartyToken
     );
-    await TokenContract2.connect(acc1).approve(
+
+    await TokenContract2.connect(acc2).approve(
       tradeContract.address,
       allowance
     );
 
-    const submitTxUser2 = await tradeContract
-      .connect(acc1)
-      .submitTradeOrder(counterPartyToken, transferAmountUser2, traderToken, {
+    //find matching trades
+
+    const matches = await tradeContract
+      .connect(acc2)
+      .getMatches(counterPartyToken, transferAmount, traderToken, {
         gasLimit: 5000000,
       });
 
-    const submitTxReceiptUser2 = await submitTxUser2.wait();
-    console.log(
-      "Second trade matched and swap initiated. Hash:",
-      submitTxReceiptUser2.transactionHash
-    );
-    const completeSwap = await tradeContract
-      .connect(acc0)
-      .completeSwap(0, { gasLimit: 500000 });
+    console.log(matches.length, "matching trades ");
 
-    const swapReceipt = await completeSwap.wait();
-    console.log("swap completed", swapReceipt.transactionHash);
-    const swap = await tradeContract.swaps(0);
-    console.log(swap);
+    const submitTxUser3 = await tradeContract
+      .connect(acc0)
+      .submitTradeOrder(
+        [1, 2],
+        transferAmount,
+        counterPartyToken,
+        traderToken,
+        {
+          gasLimit: 5000000,
+        }
+      );
+
+    const submitTxReceiptUser3 = await submitTxUser3.wait();
+    console.log(
+      "Third trade matched and swaps initiated. Hash:",
+      submitTxReceiptUser3.transactionHash
+    );
+
+    const pendingSwaps = await tradeContract
+      .connect(acc2)
+      .getPendingSwaps(3, [acc0.address, acc2.address], {
+        gasLimit: 5000000,
+      });
+
+    console.log("Pending swaps", pendingSwaps);
+
+    // const completeSwap = await tradeContract
+    //   .connect(acc0)
+    //   .completeSwap(0, { gasLimit: 500000 });
+
+    // const swapReceipt = await completeSwap.wait();
+    // console.log("swap completed", swapReceipt.transactionHash);
   }).timeout(600000000000);
 });

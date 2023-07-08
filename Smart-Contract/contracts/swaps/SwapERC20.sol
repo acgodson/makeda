@@ -82,30 +82,30 @@ contract SwapERC20 is Ownable {
 
     function complete(uint256 id) internal {
         Swap storage swap = swaps[id];
-        IERC20 initiatorToken = IERC20(swap.initiatorToken);
-        IERC20 counterPartyToken = IERC20(swap.counterPartyToken);
+        // IERC20 initiatorToken = IERC20(swap.initiatorToken);
+        // IERC20 counterPartyToken = IERC20(swap.counterPartyToken);
 
-        uint256 initiatorAmount = swap.initiatorAmount;
-        uint256 counterPartyAmount = swap.counterPartyAmount;
-        address counterParty = swap.counterParty;
-        address initiator = swap.initiator;
+        // uint256 initiatorAmount = swap.initiatorAmount;
+        // uint256 counterPartyAmount = swap.counterPartyAmount;
+        // address counterParty = swap.counterParty;
+        // address initiator = swap.initiator;
 
         // // transfer to fulfiller
-        require(
-            initiatorToken.transfer(
-                counterParty,
-                initiatorAmount
-            ),
-            "Transfer to counterParty failed"
-        );
+        // require(
+        //     initiatorToken.transfer(
+        //         counterParty,
+        //         initiatorAmount
+        //     ),
+        //     "Transfer to counterParty failed"
+        // );
         // transfer to initiator
-        require(
-            counterPartyToken.transfer(
-                initiator,
-                counterPartyAmount
-            ),
-            "Transfer to initiator failed"
-        );
+        // require(
+        //     counterPartyToken.transfer(
+        //         initiator,
+        //         counterPartyAmount
+        //     ),
+        //     "Transfer to initiator failed"
+        // );
 
         swap.completed = true;
         emit SwapCompleted(id);

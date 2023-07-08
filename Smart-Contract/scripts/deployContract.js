@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
 async function main() {
-  const TradeContract = await hre.ethers.getContractFactory("TradeFactory");
+  const TradeContract = await hre.ethers.getContractFactory("TradeContract");
   const tradeContract = await TradeContract.deploy();
   await tradeContract.deployed();
   console.log("Contract deployed to:", tradeContract.address);

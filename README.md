@@ -34,6 +34,18 @@ Test Contract
 ```bash
 npx hardhat test
 ```
+Deploy a new TradeContract
+```bash
+npx hardhat run scripts/deployContract.js
+```
+
+Initialize your custom tokens
+```typescript
+const tokens sting[] = <addresses>;
+const prices sting[] = <addresses>;
+...
+ await tradeCcontract.initialize(tokens, prices, {gasLimit: 500000});
+```
 
 <!-- Replace the image URLs below with the actual links to your project screenshots -->
 

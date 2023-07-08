@@ -12,6 +12,7 @@ module.exports = {
       },
     },
   },
+  defaultNetwork: "zen",
   networks: {
     fantom: {
       url: `https://rpc.testnet.fantom.network`,
@@ -20,18 +21,26 @@ module.exports = {
         process.env.ACCOUNT2,
         process.env.ACCOUNT1,
         process.env.ACCOUNT3,
-        process.env.ACCOUNT4,
       ],
     },
     zen: {
       chainId: 1663,
       url: process.env.HORIZEN_RPC_URL,
       accounts: [
+        process.env.ACCOUNT2,
+        process.env.ACCOUNT1,
+        process.env.ACCOUNT3,
+      ],
+      gasPrice: "auto",
+    },
+    Fmainnet: {
+      url: `https://rpcapi.fantom.network`,
+      chainId: 250,
+      accounts: [
         process.env.ACCOUNT1,
         process.env.ACCOUNT2,
         process.env.ACCOUNT3,
       ],
-      gasPrice: "auto",
     },
     goerli: {
       url: process.env.GOERLI_RPC_URL,

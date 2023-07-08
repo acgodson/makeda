@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { useAccount } from "wagmi";
-import { Box, HStack, Text, Icon, Divider, VStack, Select, Heading, Button, Table, Tbody, Td, Th, Thead, Tr, Stack, Center, FormControl, FormLabel, Input, IconButton, Tab, TabList, TabPanel, TabPanels, Tabs } from '@chakra-ui/react';
+import { useAccount, useChainId } from "wagmi";
+import { Box, HStack, Text, Icon, Divider, VStack, Select, Heading, Button, Table, Tbody, Td, Th, Thead, Tr, Stack, Center, FormControl, FormLabel, Input, IconButton, Tab, TabList, TabPanel, TabPanels, Tabs, useToast } from '@chakra-ui/react';
 import { FaCheckCircle, FaClock, FaExchangeAlt } from 'react-icons/fa';
 import { IconContext } from 'react-icons';
 import TradingChart from "@/components/TradingChart";
@@ -9,35 +9,109 @@ import TradeHistoryTable from '@/components/TradeHistory';
 import { useCurrentPrices } from '@/hooks/walletHooks';
 import NotificationDrawer from '@/components/Notification';
 import NavBar from '@/components/NavBar';
-import { BTCAddress, ETHAddress, erc20ABI, tradeABI, tradeAddress } from '@/constants';
+import { BTCAddress, ETHAddress, erc20ABI, tradeABI } from '@/constants';
+import JsonParser from '@/components/DeployForm';
+import { GlobalContext } from '@/contexts/global';
+import QuickModal from '@/components/quickmodal';
+import BigNumber from 'bignumber.js';
+
 
 export type Address = string | null;
 
 const tokenOptions = [
-    { label: "m_BTC", value: BTCAddress },
-    { label: "m_ETH", value: ETHAddress },
+    { label: "m_USDC", value: "0x6DA84c226162aBf933c18b5Ca6bC3577584bee86" },
+    { label: "m_ETH", value: "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4" },
     // { label: "m_USDC", value: "0xabc123" },
 ];
 
 const Dashboard = () => {
-
+    const { tradeAddress }: any = useContext(GlobalContext);
     const { address } = useAccount();
     const [traderToken, setTraderToken] = useState<string>("");
     const [traderAmount, setTraderAmount] = useState<number>(0.00);
     const [counterpartyToken, setCounterpartyToken] = useState<string>("");
     const [myTrades, setTrades] = useState<any[] | null>(null);
     const currentPrices = useCurrentPrices()
+    const [pageIndex, setPageIndex] = useState(0);
+    const [isOpen, setIsOpen] = useState(false);
+    const [tradeIds, setTradeIds] = useState<any[] | null>(null)
+    const [submitting, setSubmitting] = useState(false)
+    const [matchingTrades, setmatchingTrades] = useState<any[] | null>(null);
+    const handleOpenModal = () => {
+        setIsOpen(true);
+    };
 
+    const handleCloseModal = () => {
+        setIsOpen(false);
+    };
 
-    async function submitTrade() {
+    const submitTrade = async () => {
         // Check if all required inputs are provided
         if (!traderToken || !traderAmount || !counterpartyToken) {
             console.log("Please fill in all the fields");
             return;
         }
 
+        if (!tradeAddress) {
+            toast({
+                title: "please deploy a trade contract",
+                status: "error"
+            })
+            return;
+        }
+
+        setSubmitting(true)
+        setIsOpen(true)
+
+        // Initialize ethers and contract instance
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+            console.log("Ethereum provider not available");
+            return;
+        }
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const contractAddress = tradeAddress; // Replace with the actual trade contract address
+        const contractAbi = tradeABI; // Replace with the actual trade contract ABI
+        const contract = new ethers.Contract(contractAddress, contractAbi, signer);
+
+        const tx = await contract.getMatches(traderToken, traderAmount, counterpartyToken, {
+            gasLimit: 5000000,
+        });
+
+        console.log("Matching Trade", tx);
+
+        if (tx.length > 0) {
+
+            const rr = tx.map((x: any) => {
+                const obj = {
+                    balance: x[0],
+                    id: x[2],
+                    initiator: x[3]
+                }
+                return obj
+            })
+
+            console.log(rr)
+            const bb = rr.map((x: any) => new BigNumber(x.balance.toString()).toNumber()
+            )
+            console.log("trade IDs", bb)
+            setmatchingTrades(bb)
+            setTradeIds(rr);
+        } else {
+            setTradeIds([])
+            setmatchingTrades([])
+        }
+    };
+
+
+
+
+    const toast = useToast();
+    async function handleConfirmTrade() {
+
         // Convert traderAmount to the appropriate unit (e.g., from mBTC to BTC)
-        const convertedAmount = ethers.utils.parseEther("10");
+        const convertedAmount = ethers.utils.parseEther(traderAmount.toString());
 
         // Initialize ethers and contract instance
         const ethereum = (window as any).ethereum;
@@ -53,112 +127,44 @@ const Dashboard = () => {
 
         //get allowance first
         const TradertokenContract = new ethers.Contract(traderToken, erc20ABI, signer);
+
         try {
-            const preTx = await TradertokenContract.approve(contract.address, ethers.utils.parseUnits(String(traderAmount + 3), 18));
-            preTx.wait();
+
+            const allowance = await TradertokenContract.allowance(address, contract.address);
+
+            if (allowance.lt(convertedAmount)) {
+                // Request approval from the user
+                const preTx = await TradertokenContract.approve(contract.address, ethers.utils.parseUnits(String(traderAmount + 3), 18));
+                preTx.wait();
+            }
+            const transactionObject = {
+                gasLimit: 5000000,
+                // title: 'Submit Trade Order'
+            };
+
             const tx = await contract.submitTradeOrder(
-                0,
-                ethers.utils.getAddress(traderToken),
+                matchingTrades,
                 convertedAmount,
+                traderToken,
                 ethers.utils.getAddress(counterpartyToken),
-                { gasLimit: 500000 }
-            )
+                transactionObject
+            );
+
             tx.wait()
             console.log("Trade order submitted:", tx.hash);
             setTraderAmount(0)
             setTraderToken("")
             setCounterpartyToken("")
+            setSubmitting(false)
         } catch (e) {
             console.log(e)
         }
 
     }
 
-
-
-    // Function to fetch token prices from Coingecko
-    async function fetchTokenPrices() {
-        const response = await fetch(
-            "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
-        );
-        const data = await response.json();
-        const bitcoinPrice = data.bitcoin.usd;
-        const ethereumPrice = data.ethereum.usd;
-        console.log({ bitcoinPrice, ethereumPrice })
-        return { bitcoinPrice, ethereumPrice };
-    }
-    // Function to update the exchange rate in the smart contract
-    async function updateExchangeRate(contract: any, tokenA: string, tokenB: string, rate: any) {
-        // Initialize ethers and contract instance
-        const ethereum = (window as any).ethereum;
-        if (!ethereum) {
-            return;
-        }
-        const provider = new ethers.providers.Web3Provider(ethereum);
-        const signer = provider.getSigner();
-
-        const options = {
-            gasLimit: 200000, // Set your desired gas limit here
-        };
-        // Update the exchange rate
-        const contractWithSigner = contract.connect(signer);
-        await contractWithSigner.updateExchangeRate(tokenA, tokenB, rate);
-        console.log("Exchange rate updated successfully!");
-    }
-    // useEffect(() => {
-    //     // Initialize ethers and contract instance
-    //     const ethereum = (window as any).ethereum;
-    //     if (!ethereum) {
-    //         return;
-    //     }
-    //     const provider = new ethers.providers.Web3Provider(ethereum);
-    //     const contractAddress = tradeAddress;
-    //     const contractAbi = tradeABI;
-    //     const contract = new ethers.Contract(contractAddress, contractAbi, provider);
-
-    //     // Fetch token prices and update exchange rate
-    //     fetchTokenPrices()
-    //         .then(({ bitcoinPrice, ethereumPrice }) => {
-    //             const tokenA = BTCAddress; // Address of Mock Bitcoin
-    //             const tokenB = ETHAddress; // Address of Mock Ethereu
-    //             const rate = ethers.utils.parseUnits(String(30516 / 1852.4), 18);
-    //             updateExchangeRate(contract, tokenA, tokenB, rate);
-    //         })
-    //         .catch((error) => {
-    //             console.log("Error fetching token prices:", error);
-    //         });
-    // }, []);
-
-    // Function to get and print the exchange rates
-
-    async function getExchangeRates() {
-        try {
-            // Get the token addresses for which you want to retrieve the exchange rates
-            const tokenA = BTCAddress;
-            const tokenB = ETHAddress;
-            const ethereum = (window as any).ethereum;
-            if (!ethereum) {
-                return;
-            }
-            const provider = new ethers.providers.Web3Provider(ethereum);
-
-            const contract = new ethers.Contract(tradeAddress, tradeABI, provider);
-
-            // Call the contract function to retrieve the exchange rate
-            const exchangeRate = await contract.getExchangeRate(tokenA, tokenB);
-
-            console.log(`Exchange rate between ${tokenA} and ${tokenB}: ${ethers.utils.formatUnits(exchangeRate.toString(), 18)}`);
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    }
-    // useEffect(() => {
-    //     getExchangeRates()
-    // }, [])
-
     useEffect(() => {
         const fetchTrades = async () => {
-            if (!address) {
+            if (!address || !tradeAddress) {
                 return;
             }
             try {
@@ -169,11 +175,20 @@ const Dashboard = () => {
                 const tradeCounter = await tradeContract.tradeCounter();
                 const tradesData = [];
 
-                for (let i = 0; i <= tradeCounter; i++) {
-                    const { 0: id, 1: initiator, 2: initiatorToken, 3: initiatorAmount, 4: counterPartyToken, 5: counterPartyAmount, 6: balance, 7: state } = await tradeContract.trades(i);
+
+                for (let i = 1; i <= tradeCounter; i++) {
+                    const {
+                        0: id,
+                        1: initiator,
+                        2: initiatorAmount,
+                        3: initiatorToken,
+                        4: counterPartyToken,
+                        5: counterPartyAmount,
+                        6: balance, 7:
+                        state } = await tradeContract.trades(i);
                     // Check if the trade's state is not finished and the initiator is the user's address
                     if (state !== 2 && initiator === ethers.utils.getAddress(address)) {
-                        const _trade = { id: ethers.utils.formatUnits(id, 18), initiator, initiatorToken, initiatorAmount: ethers.utils.formatUnits(initiatorAmount, 18), counterPartyToken, balance: ethers.utils.formatUnits(balance, 18), state };
+                        const _trade = { id: id, initiator, initiatorToken, initiatorAmount: ethers.utils.formatUnits(initiatorAmount, 18), counterPartyToken, balance: ethers.utils.formatUnits(balance, 18), state };
                         tradesData.push(_trade);
                     }
                 }
@@ -184,10 +199,12 @@ const Dashboard = () => {
         };
 
         if (address && !myTrades) {
-            console.log(address)
+            console.log(tradeAddress)
             fetchTrades();
         }
     }, [address]);
+
+
 
 
     // useEffect(() => {
@@ -199,6 +216,7 @@ const Dashboard = () => {
     return (
         <>
             <NavBar />
+
             <Stack
                 minH="100vh"
                 direction={["column-reverse", "row", "row"]}
@@ -207,77 +225,123 @@ const Dashboard = () => {
                 h="100vh"
                 justifyContent="center"
             >
-                <Box
-                    width="70%"
-                    left={0}
-                    h="100vh"
-                    px={6}
-                    pt={24}
-                    position={"absolute"}
-                    bg="#151515"
-                    overflowY="auto"
-                    css={{
-                        "&::-webkit-scrollbar": {
-                            width: "5px",
-                        },
-                        "&::-webkit-scrollbar-thumb": {
-                            background: "#4F81FF",
-                            borderRadius: "5px",
-                        },
-                        "&::-webkit-scrollbar-thumb:hover": {
-                            background: "#4F81FF",
-                        },
-                    }}
-                >
-
-                    <Box w="100%" display={"flex"} justifyContent={"flex-end"} pb={3} pr={2}>
-                        <NotificationDrawer />
-                    </Box>
-
-                    <VStack
-                        borderTopRadius={"18px"}
-                        pt={8}
-                        pb={12}
+                {pageIndex === 0 && (
+                    <Box
+                        width="70%"
+                        left={0}
+                        h="100vh"
                         px={6}
-                        w="100%"
-                        alignItems="flex-start"
-                        justifyItems="flex-start"
-                        justifyContent="flex-start"
-                        bg="rgba(42, 53, 80, 0.2)"
-                        backdropFilter="blur(10px)"
+                        pt={24}
+                        position={"absolute"}
+                        bg="#151515"
+                        overflowY="auto"
+                        css={{
+                            "&::-webkit-scrollbar": {
+                                width: "5px",
+                            },
+                            "&::-webkit-scrollbar-thumb": {
+                                background: "#4F81FF",
+                                borderRadius: "5px",
+                            },
+                            "&::-webkit-scrollbar-thumb:hover": {
+                                background: "#4F81FF",
+                            },
+                        }}
                     >
 
-                        <VStack w="100%" alignItems={"flex-start"}>
-                            <Text
-                                cursor={"pointer"}
-                                border={"0.5px solid gray"}
-                                borderRadius={"12px"}
-                                p={3}
-                                fontSize={"lg"}
-                                fontWeight={"semibold"}
-                                color={"white"}
-                            >Ethereum</Text>
-
-                            <Divider
-                                pt={1}
-                                opacity="0.1"
-
-                            />
-                            <Heading
-                                color="white"
-                            >${currentPrices.ethPrice}</Heading>
-                        </VStack>
-
-
-                        <Box w="100%"  >
-                            <TradingChart />
+                        <Box w="100%" display={"flex"} justifyContent={"center"} pb={3} pr={2}>
+                            <Button
+                                onClick={() => setPageIndex(1)}
+                            >Deploy Swap Contract</Button>
+                            <Box position={"absolute"}
+                                pr={5}
+                                mb={5}
+                                right={0}>
+                                <NotificationDrawer />
+                            </Box>
                         </Box>
-                    </VStack>
-                    <br />
-                    {myTrades && <TradeHistoryTable
-                        tradeData={myTrades}
-                    />}
-                </Box>
+
+                        <VStack
+                            borderTopRadius={"18px"}
+                            pt={8}
+                            pb={12}
+                            px={6}
+                            w="100%"
+                            alignItems="flex-start"
+                            justifyItems="flex-start"
+                            justifyContent="flex-start"
+                            bg="rgba(42, 53, 80, 0.2)"
+                            backdropFilter="blur(10px)"
+                        >
+
+                            <VStack w="100%" alignItems={"flex-start"}>
+                                <Text
+                                    cursor={"pointer"}
+                                    border={"0.5px solid gray"}
+                                    borderRadius={"12px"}
+                                    p={3}
+                                    fontSize={"lg"}
+                                    fontWeight={"semibold"}
+                                    color={"white"}
+                                >Ethereum</Text>
+
+                                <Divider
+                                    pt={1}
+                                    opacity="0.1"
+
+                                />
+                                <Heading
+                                    color="white"
+                                >${currentPrices.ethPrice}</Heading>
+                            </VStack>
+
+
+                            <Box w="100%"  >
+                                <TradingChart />
+                            </Box>
+                        </VStack>
+                        <br />
+                        {myTrades && <TradeHistoryTable
+                            tradeData={myTrades}
+                        />}
+
+                    </Box>
+
+                )}
+
+                {pageIndex === 1 && (
+                    <Box width="70%"
+                        left={0}
+                        h="100vh"
+                        px={6}
+                        pt={24}
+                        position={"absolute"}
+                        bg="#151515"
+                        overflowY="auto"
+                        css={{
+                            "&::-webkit-scrollbar": {
+                                width: "5px",
+                            },
+                            "&::-webkit-scrollbar-thumb": {
+                                background: "#4F81FF",
+                                borderRadius: "5px",
+                            },
+                            "&::-webkit-scrollbar-thumb:hover": {
+                                background: "#4F81FF",
+                            },
+                        }}>
+
+                        <Box w="100%" display={"flex"} justifyContent={"center"} pb={3} pr={2}>
+                            <Button
+                                onClick={() => setPageIndex(0)}
+                            >Home</Button>
+                        </Box>
+
+                        <JsonParser />
+                    </Box>
+
+                )}
+
 
                 <VStack
                     bg="linear-gradient(209.6deg, #4F81FF 1%, #4F81FF 4%, #151515 34.36%)"
@@ -321,7 +385,7 @@ const Dashboard = () => {
                                             }}
                                             h="50px"
                                             placeholder="My token"
-                                            value={traderToken}
+                                            value={traderToken.toString()}
                                             onChange={(e) => setTraderToken(e.target.value)}
                                         // styles={selectStyles}
                                         >
@@ -409,6 +473,15 @@ const Dashboard = () => {
 
 
             </Stack>
+
+            <QuickModal
+                tradeIds={matchingTrades}
+                trades={tradeIds}
+                isOpen={isOpen}
+                onClose={handleCloseModal}
+                onConfirmTrade={handleConfirmTrade}
+            />
+
         </>
 
     );

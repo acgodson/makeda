@@ -4,35 +4,18 @@ import { publicProvider } from "wagmi/providers/public";
 import { ChakraProvider } from '@chakra-ui/react';
 import "@rainbow-me/rainbowkit/styles.css";
 import { configureChains, createConfig, WagmiConfig } from "wagmi";
-import { filecoinHyperspace, goerli, polygonMumbai } from "wagmi/chains";
+import { goerli, polygonMumbai } from "wagmi/chains";
 import {
   getDefaultWallets,
   RainbowKitProvider,
   darkTheme,
 } from "@rainbow-me/rainbowkit";
+import { fantom, fantommainnet, horizen } from '@/constants';
+import GlobalProvider from '@/contexts/global';
 
-
-const horizen = {
-  id: 1663,
-  name: "Horizen",
-  network: "horizen",
-  nativeCurrency: {
-    decimals: 18,
-    name: "testnet horizen",
-    symbol: "tZEN",
-  },
-  rpcUrls: {
-    default: { http: ["https://gobi-testnet.horizenlabs.io/ethv1"] },
-    public: { http: ["https://gobi-testnet.horizenlabs.io/ethv1"] },
-  },
-  blockExplorers: {
-    default: { name: "Gobi", url: "https://gobi-explorer.horizen.io" },
-    gobi: { name: "Gobi", url: "https://gobi-explorer.horizen.io" },
-  },
-}
 
 const { chains, publicClient } = configureChains(
-  [horizen, goerli],
+  [horizen, fantom, goerli, polygonMumbai, fantommainnet],
   [publicProvider()]
 
 );
@@ -52,14 +35,14 @@ const wagmiConfig = createConfig({
 export default function App({ Component, pageProps }: AppProps) {
 
   return (
-    <>
+    <GlobalProvider>
       <WagmiConfig config={wagmiConfig}>
         <RainbowKitProvider modalSize="compact" chains={chains}>
           <Component {...pageProps} />
         </RainbowKitProvider>
       </WagmiConfig >
 
-    </>
+    </GlobalProvider>
 
   );
 }

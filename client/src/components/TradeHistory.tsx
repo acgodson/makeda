@@ -1,6 +1,7 @@
 import { BTCAddress, ETHAddress } from "@/constants";
 import { Table, Tbody, Tr, Td, Center, Icon, useColorModeValue, Th, Thead, Box } from "@chakra-ui/react";
 import { FiRepeat } from "react-icons/fi";
+import { ethers } from "ethers";
 
 const TradeHistoryTable = (prop: { tradeData: any[] | null }) => {
 
@@ -38,7 +39,8 @@ const TradeHistoryTable = (prop: { tradeData: any[] | null }) => {
             <Tbody>
                 {tradeData.map((trade) => (
                     <Tr key={trade.id}>
-                        <Td>{trade.id}</Td>
+                        <Td>      {(parseInt(trade.id))}
+                        </Td>
                         <Td
                             color={"white"}
                         >

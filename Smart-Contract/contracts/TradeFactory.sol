@@ -64,6 +64,9 @@ contract TradeFactory {
             keccak256(bytecode)
         );
 
+
+
+
         // Create an escrow contract
         address escrow = Create2.deploy(0, salt, bytecode);
         TradeContract(escrow).initialize(tokens, prices);
