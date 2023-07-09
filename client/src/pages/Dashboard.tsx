@@ -18,11 +18,7 @@ import BigNumber from 'bignumber.js';
 
 export type Address = string | null;
 
-const tokenOptions = [
-    { label: "m_USDC", value: "0x6DA84c226162aBf933c18b5Ca6bC3577584bee86" },
-    { label: "m_ETH", value: "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4" },
-    // { label: "m_USDC", value: "0xabc123" },
-];
+
 
 const Dashboard = () => {
     const { tradeAddress }: any = useContext(GlobalContext);
@@ -37,6 +33,14 @@ const Dashboard = () => {
     const [tradeIds, setTradeIds] = useState<any[] | null>(null)
     const [submitting, setSubmitting] = useState(false)
     const [matchingTrades, setmatchingTrades] = useState<any[] | null>(null);
+    const [tokenOptions, setTokenOptions] = useState([{ label: "", value: "" }]);
+    const [pending, setPending] = useState<any | null>(null)
+
+    // const tokenOptions = [
+    //     { label: "m_USDC", value: "0x6DA84c226162aBf933c18b5Ca6bC3577584bee86" },
+    //     { label: "m_ETH", value: "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4" },
+    //     // { label: "m_USDC", value: "0xabc123" },
+    // ];
     const handleOpenModal = () => {
         setIsOpen(true);
     };
@@ -103,6 +107,91 @@ const Dashboard = () => {
             setmatchingTrades([])
         }
     };
+
+
+    useEffect(() => {
+        async function fetchSymbols() {
+            //call the token counter
+            // Initialize ethers and contract instance
+            const ethereum = (window as any).ethereum;
+            if (!ethereum) {
+                console.log("Ethereum provider not available");
+                return;
+            }
+            const provider = new ethers.providers.Web3Provider(ethereum);
+            const signer = provider.getSigner();
+            const contractAddress = tradeAddress; // Replace with the actual trade contract address
+            const contractAbi = tradeABI; // Replace with the actual trade contract ABI
+            const contract = new ethers.Contract(contractAddress, contractAbi, signer);
+
+            const tokens = localStorage.getItem("tokens");
+            if (tokens) {
+                const addresses = JSON.parse(tokens); //array of token addresses
+
+                const tokenSymbolPromises = addresses.map(async (tokenAddress: string) => {
+                    const tokenContract = new ethers.Contract(tokenAddress, erc20ABI, signer);
+                    const tokenSymbol = await tokenContract.symbol();
+                    return { label: tokenSymbol, value: tokenAddress };
+                });
+
+                const fetchedTokenOptions = await Promise.all(tokenSymbolPromises);
+                setTokenOptions(fetchedTokenOptions);
+            };
+        }
+
+        if (tradeAddress && tradeAddress.length > 2) {
+            fetchSymbols()
+        }
+    }, [tradeAddress]);
+
+
+
+    useEffect(() => {
+
+        if (!address) {
+            return;
+        }
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+            console.log("Ethereum provider not available");
+            return;
+        }
+        // Initialize ethers provider and contract instances
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const contractAddress = tradeAddress; // Replace with the actual trade contract address
+        const contractAbi = tradeABI; // Replace with the actual trade contract ABI
+        const contract = new ethers.Contract(contractAddress, contractAbi, signer);
+
+        // Fetch pending swaps when component mounts
+        async function fetchSwaps() {
+            const pendingSwaps = [];
+            const result = await contract.getPendingSwaps(address);
+            for (let i = 0; i < result.length; i++) {
+                const swap = result[i];
+                const pendingSwap = {
+                    id: swap.id.toString(),
+                    initiatorAmount: swap.initiatorAmount.toString(),
+                    counterPartyAmount: swap.counterPartyAmount.toString(),
+                    counterParty: swap.counterParty,
+                    initiator: swap.initiator,
+                    initiatorToken: swap.initiatorToken,
+                    counterPartyToken: swap.counterPartyToken,
+                    completed: swap.completed,
+                };
+                pendingSwaps.push(pendingSwap);
+            }
+
+            console.log(pendingSwaps);
+            if (result && result.length > 0) {
+                setPending(pendingSwaps);
+            }
+        }
+        if (tradeAddress && !pending) {
+            fetchSwaps();
+        }
+
+    },);
 
 
 
@@ -255,9 +344,12 @@ const Dashboard = () => {
                             >Deploy Swap Contract</Button>
                             <Box position={"absolute"}
                                 pr={5}
+                                mr={2}
                                 mb={5}
                                 right={0}>
-                                <NotificationDrawer />
+                                <NotificationDrawer
+                                    pending={pending}
+                                />
                             </Box>
                         </Box>
 
@@ -359,7 +451,7 @@ const Dashboard = () => {
                         bg="rgba(79, 129, 255, 0.2)"
                         backdropFilter="blur(10px)"
                         w="100%"
-                        h="100%"
+                        // h="100%"
                         p={8}
                         display="flex"
                         flexDirection="column"
@@ -376,7 +468,7 @@ const Dashboard = () => {
                                 <Tab color="whatsapp.500">NFT</Tab>
                             </TabList>
                             <TabPanels p={0}>
-                                <TabPanel h="375px" display={"flex"} flexDir={"column"} alignItems={"center"}>
+                                <TabPanel minH="375px" display={"flex"} flexDir={"column"} alignItems={"center"}>
                                     <FormControl mb={4}>
                                         <FormLabel color="whiteAlpha.600">Send</FormLabel>
                                         <Select
@@ -389,7 +481,7 @@ const Dashboard = () => {
                                             onChange={(e) => setTraderToken(e.target.value)}
                                         // styles={selectStyles}
                                         >
-                                            {tokenOptions
+                                            {tokenOptions.length > 1 && tokenOptions
                                                 .filter((option) => option.value !== counterpartyToken) // Exclude the selected traderToken
                                                 .map((option) => (
                                                     <option key={option.value} value={option.value}>
@@ -439,7 +531,7 @@ const Dashboard = () => {
                                             onChange={(e) => setCounterpartyToken(e.target.value)}
 
                                         >
-                                            {tokenOptions
+                                            {tokenOptions.length > 1 && tokenOptions
                                                 .filter((option) => option.value !== traderToken)
                                                 .map((option) => (
                                                     <option key={option.value} value={option.value}>
@@ -451,8 +543,11 @@ const Dashboard = () => {
                                         </Select>
                                     </FormControl>
                                 </TabPanel>
-                                <TabPanel h="375px">
+                                <TabPanel minH="375px" color="white">
                                     {/* //NFT Swap */}
+                                    <Center>
+                                        <Text>   coming soon</Text>
+                                    </Center>
                                 </TabPanel>
                             </TabPanels>
                         </Tabs>

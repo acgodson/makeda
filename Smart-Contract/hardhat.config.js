@@ -27,8 +27,8 @@ module.exports = {
       chainId: 1663,
       url: process.env.HORIZEN_RPC_URL,
       accounts: [
-        process.env.ACCOUNT2,
         process.env.ACCOUNT1,
+        process.env.ACCOUNT2,
         process.env.ACCOUNT3,
       ],
       gasPrice: "auto",

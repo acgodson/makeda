@@ -4,8 +4,8 @@
 // export const ETHAddress = "0x3b70652cB79780cA1bf60a8b34cc589BbeDc00B2"; //token 2
 
 //tesnets
-export const tradeAddress = "0x14750a205c1aE5D8B182C4b3B44F2Adf69acC61d";
-export const factoryAddress = "0x10c646c5b47eB226Bf687B0aEfD6068db64d4a07";
+export const tradeAddress = "0x14750a205c1aE5D8B182C4b3B44F2Adf69acC61d"; //use local storage addrress instead
+export const factoryAddress = "0xF5176d249a8Ca89Ac9E08A285942507edA07AD6f";
 export const BTCAddress = "0xe7dCfABAFBe09D7D9081E44de4Ad7203f88BF28F"; //token 1
 export const ETHAddress = "0xd85b13920b03d6998700cf52f0F2cdF702f0896E"; //token 2
 
@@ -121,6 +121,19 @@ export const tradeABI = [
     inputs: [
       {
         internalType: "uint256",
+        name: "swapId",
+        type: "uint256",
+      },
+    ],
+    name: "completeSwap",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
         name: "",
         type: "uint256",
       },
@@ -225,14 +238,9 @@ export const tradeABI = [
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "initiatorTradeID",
-        type: "uint256",
-      },
-      {
-        internalType: "address[]",
-        name: "addresses",
-        type: "address[]",
+        internalType: "address",
+        name: "initiatorAddress",
+        type: "address",
       },
     ],
     name: "getPendingSwaps",
@@ -300,7 +308,7 @@ export const tradeABI = [
         type: "tuple[]",
       },
     ],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
     type: "function",
   },
   {

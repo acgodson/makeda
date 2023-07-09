@@ -15,12 +15,12 @@ const GlobalProvider = ({ children }: any) => {
     const [tradeAddress, setTradeAddress] = useState<string | null>("0x70F415ae4E110517568b7eA6B4A771059cFD2A2A")
 
 
-    // useEffect(() => {
-    // const trade = localStorage.getItem("tradeAddress");
-    // if (trade) {
-    //     setTradeAddress(trade)
-    // }
-    // }, [])
+    useEffect(() => {
+        const trade = localStorage.getItem("tradeAddress");
+        if (trade) {
+            setTradeAddress(trade)
+        }
+    }, [])
 
 
 

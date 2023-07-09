@@ -74,7 +74,7 @@ contract SwapERC20 is Ownable {
         });
         swaps[swapCounter] = swap;
 
-        swapIdsByAddress[counterParty].push(id);
+        // swapIdsByAddress[initiatorParty].push(id);
         swapIdsByAddress[counterParty].push(id);
         swapCounter++;
         emit SwapBegun(id, initiatorParty, counterParty);

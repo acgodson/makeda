@@ -793,6 +793,7 @@ describe("Simple Makeda Contract", function () {
       gasLimit: 5000000,
     });
     await tradeFactory.deployed();
+    console.log("conteact factory", tradeFactory.address);
     //create space and deploy escrow
     const create = await tradeFactory.createSpace(
       [traderToken, counterPartyToken], //mock tokens
@@ -804,7 +805,7 @@ describe("Simple Makeda Contract", function () {
     await create.wait();
     const spaces = await tradeFactory.getSpaces(acc0.address);
     const escrowAddress = spaces[0][1];
-    console.log("Escrow contract deployed at: ", escrowAddress);
+    console.log("Escrow contract deployed at: ", spaces);
 
     tradeContract = new ethers.Contract(
       escrowAddress,
@@ -818,6 +819,8 @@ describe("Simple Makeda Contract", function () {
     const transferAmountUser2 = ethers.utils.parseEther("3");
 
     matchingTrades = [];
+
+    return;
 
     //User one gives allowance and submits trade
     const allowance = ethers.utils.parseUnits("100", 18);

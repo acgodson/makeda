@@ -7,7 +7,16 @@ import { GlobalContext } from "@/contexts/global";
 
 const JsonParser = () => {
     const { address } = useAccount();
-    const [jsonInput, setJsonInput] = useState("");
+    const [jsonInput, setJsonInput] = useState(`[
+        {
+           "address":"0x6DA84c226162aBf933c18b5Ca6bC3577584bee86",
+           "price":1
+        },
+        {
+           "address":"0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4",
+           "price":1860.9
+        }
+     ]`);
     const [tokens, setTokens] = useState([]);
     const [prices, setPrices] = useState([]);
     const [errorMessage, setErrorMessage] = useState("");
@@ -49,7 +58,7 @@ const JsonParser = () => {
         }
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
-        const contractAddress = "0x9B9BD12Eb8Da15777744f2eE7c4497465Bb53503"; // factory address
+        const contractAddress = "0xF5176d249a8Ca89Ac9E08A285942507edA07AD6f"; // factory address
         const contractAbi = factoryABI; // Replace with the actual trade contract ABI
         const contract = new ethers.Contract(contractAddress, contractAbi, signer);
 
@@ -62,12 +71,15 @@ const JsonParser = () => {
 
         await create.wait();
         const spaces = await contract.getSpaces(address);
-        alert(spaces)
+        // alert(spaces)
         const escrowAddress = spaces[0][1];
         console.log("Escrow contract deployed at: ", escrowAddress);
         setTradeAddress(escrowAddress);
-        // localStorage.setItem("tradeAddress", escrowAddress)
+        localStorage.setItem("tradeAddress", escrowAddress)
+        localStorage.setItem("tokens", JSON.stringify(tokens));
     };
+
+    
 
     return (
         <Box color="white">
@@ -113,7 +125,7 @@ const JsonParser = () => {
 
             {tradeAddress && tradeAddress.length > 3 && (
                 <Box mt={4}>
-                    <Text>Deployed Escrow Address:</Text>
+                    <Text> Previously Deployed Escrow:</Text>
                     <ul>
                         <li>  {tradeAddress}  </li>
                     </ul>

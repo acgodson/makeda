@@ -29,7 +29,7 @@ contract TradeContract is TradeHelper, Initializable {
     ) external view returns (Trade[] memory) {
         require(initiatorAmount > 0, "Invalid initiator amount");
 
-        Trade[] memory matches = new Trade[](tradeCounter); // Use a fixed-size array
+        Trade[] memory matches; // Use a dynamic array
         uint256 matchCount = 0; // Keep track of the number of matches
 
         uint256 remainingAmount = initiatorAmount;
@@ -37,11 +37,9 @@ contract TradeContract is TradeHelper, Initializable {
         bytes32 pairHash = getPairHash(counterPartyToken, initiatorToken);
         SortedTrade[] storage tradeQueue = pairs[pairHash];
 
-        // require(tradeQueue.length > 0, "No matching trades found");
-
+        // Find the highest priority trade that covers the initiatorAmount
         uint256 highestPriority = 0;
 
-        // Find the highest priority trade that covers the initiatorAmount
         for (uint256 i = 0; i < tradeQueue.length; i++) {
             SortedTrade storage sortedTrade = tradeQueue[i];
             Trade storage existingTrade = trades[sortedTrade.id];
@@ -74,19 +72,19 @@ contract TradeContract is TradeHelper, Initializable {
                 Trade memory matchTrade = existingTrade;
                 matchTrade.balance = availableAmount; // Set the balance to the available amount
 
-                matches[matchCount] = matchTrade; // Add the match to the array
+                // Resize the matches array and add the match
+                Trade[] memory newMatches = new Trade[](matchCount + 1);
+                for (uint256 j = 0; j < matchCount; j++) {
+                    newMatches[j] = matches[j];
+                }
+                newMatches[matchCount] = matchTrade;
+                matches = newMatches;
                 matchCount++;
                 remainingAmount -= availableAmount;
             }
         }
 
-        // Create a new dynamic array with the correct length
-        Trade[] memory finalMatches = new Trade[](matchCount);
-        for (uint256 i = 0; i < matchCount; i++) {
-            finalMatches[i] = matches[i];
-        }
-
-        return finalMatches;
+        return matches;
     }
 
     function submitTradeOrder(
@@ -133,23 +131,48 @@ contract TradeContract is TradeHelper, Initializable {
         // Add trade to the priority index
         bytes32 pairHash = getPairHash(initiatorToken, counterPartyToken);
         enqueue(newTrade.id, priority, pairHash);
+
         // Process the provided matching trade IDs
         for (uint256 i = 0; i < matchingTradeIds.length; i++) {
             uint256 matchingTradeId = matchingTradeIds[i];
-            // Trade storage existingTrade = trades[matchingTradeId];
-            // if (matchingTradeId != newTrade.id) {
+            Trade storage matchingTrade = trades[matchingTradeId];
 
-            //     uint256 availableAmount = existingTrade.balance >
-            //         newTrade.balance
-            //         ? newTrade.balance
-            //         : existingTrade.balance;
-            // }
+            if (matchingTradeId != newTrade.id) {
+                uint256 availableAmount = matchingTrade.balance >
+                    newTrade.balance
+                    ? newTrade.balance
+                    : matchingTrade.balance;
 
-            performTrade(newTrade.id, matchingTradeId, 200);
+                performTrade(newTrade.id, matchingTradeId, availableAmount);
+            }
         }
-        // Perform trade between new trade and existing trade
-
+        
         return newTrade; // No match found
+    }
+
+    function getPendingSwaps(
+        address initiatorAddress
+    ) external view returns (Swap[] memory) {
+        uint256[] storage swapIds = swapIdsByAddress[initiatorAddress];
+        Swap[] memory pendingSwaps = new Swap[](swapIds.length);
+        uint256 pendingSwapCount = 0;
+
+        for (uint256 i = 0; i < swapIds.length; i++) {
+            uint256 swapId = swapIds[i];
+            Swap storage swap = swaps[swapId];
+
+            if (swap.initiator == initiatorAddress && !swap.completed) {
+                pendingSwaps[pendingSwapCount] = swap;
+                pendingSwapCount++;
+            }
+        }
+
+        // Resize the pendingSwaps array to remove unused slots
+        assembly {
+            mstore(pendingSwaps, pendingSwapCount)
+        }
+
+        return pendingSwaps;
     }
 
     function getTrade(uint256 tradeId) external view returns (Trade memory) {
@@ -158,57 +181,6 @@ contract TradeContract is TradeHelper, Initializable {
 
     function updateTokenPrice(address token, uint256 price) external {
         tokenPrices[token] = price;
-    }
-
-    function getPendingSwaps(
-        uint256 initiatorTradeID,
-        address[] memory addresses
-    ) external returns (Swap[] memory) {
-        uint256[] memory pendingSwapIds;
-        uint256 pendingSwapCount = 0;
-
-        // Loop through each address
-        for (uint256 j = 0; j < addresses.length; j++) {
-            address matchingAddress = addresses[j];
-            uint256[] memory swapIds = swapIdsByAddress[matchingAddress];
-
-            // Find pending swaps with the same initiatorTradeID
-            for (uint256 i = 0; i < swapIds.length; i++) {
-                uint256 swapId = swapIds[i];
-                Swap storage swap = swaps[swapId];
-
-                if (
-                    swap.initiatorTradeID == initiatorTradeID && !swap.completed
-                ) {
-                    // Resize the pendingSwapIds array if necessary
-                    if (pendingSwapCount == pendingSwapIds.length) {
-                        uint256 newSize = pendingSwapCount == 0
-                            ? 1
-                            : pendingSwapCount * 2;
-                        uint256[] memory newPendingSwapIds = new uint256[](
-                            newSize
-                        );
-                        for (uint256 k = 0; k < pendingSwapCount; k++) {
-                            newPendingSwapIds[k] = pendingSwapIds[k];
-                        }
-                        pendingSwapIds = newPendingSwapIds;
-                    }
-
-                    pendingSwapIds[pendingSwapCount] = swap.id; // Store the swap ID instead of swapId
-                    pendingSwapCount++;
-                }
-            }
-        }
-
-        // Create an array to store the pending swaps
-        Swap[] memory pendingSwaps = new Swap[](pendingSwapCount);
-        for (uint256 i = 0; i < pendingSwapCount; i++) {
-            uint256 swapId = pendingSwapIds[i];
-            pendingSwaps[i] = swaps[swapId];
-            completeSwap(pendingSwaps[i]);
-        }
-
-        return pendingSwaps;
     }
 
     function cancelSwap(uint256 id) external {
@@ -259,15 +231,13 @@ contract TradeContract is TradeHelper, Initializable {
         emit SwapCancelled(id);
     }
 
-    function completeSwap(Swap memory swap) internal {
+    function completeSwap(uint256 swapId) external {
+        Swap storage swap = swaps[swapId];
+
+        require(swap.completed != true, "Trade already completed");
+
         Trade storage counterPartyTrade = trades[swap.counterPartyTradeID];
         Trade storage initiatorTrade = trades[swap.initiatorTradeID];
-
-        // require(swap.completed != true, "Trade already completed");
-
-        // For Test, let's work with just ERC20 swap
-
-        // Swap storage xen = swaps[swap.id];
 
         IERC20 initiatorToken = IERC20(swap.initiatorToken);
         IERC20 counterPartyToken = IERC20(swap.counterPartyToken);
@@ -305,11 +275,12 @@ contract TradeContract is TradeHelper, Initializable {
             payer: swap.initiator
         });
 
-        Fulfillment memory forIntiiator = Fulfillment({
+        Fulfillment memory forInitiator = Fulfillment({
             amount: swap.counterPartyAmount,
             payer: swap.counterParty
         });
+
         fulfillments[swap.counterPartyTradeID].push(forFulfiller);
-        fulfillments[swap.initiatorTradeID].push(forIntiiator);
+        fulfillments[swap.initiatorTradeID].push(forInitiator);
     }
 }
