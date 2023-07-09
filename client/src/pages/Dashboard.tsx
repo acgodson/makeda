@@ -14,6 +14,7 @@ import JsonParser from '@/components/DeployForm';
 import { GlobalContext } from '@/contexts/global';
 import QuickModal from '@/components/quickmodal';
 import BigNumber from 'bignumber.js';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 
 export type Address = string | null;
@@ -339,9 +340,12 @@ const Dashboard = () => {
                     >
 
                         <Box w="100%" display={"flex"} justifyContent={"center"} pb={3} pr={2}>
-                            <Button
-                                onClick={() => setPageIndex(1)}
-                            >Deploy Swap Contract</Button>
+                            {address ?
+                                <Button
+                                    onClick={() => setPageIndex(1)}
+                                >Deploy Swap Contract</Button> : < ConnectButton />
+                            }
+
                             <Box position={"absolute"}
                                 pr={5}
                                 mr={2}
