@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useContext } from "react";
-import { Box, Text, Drawer, DrawerBody, DrawerCloseButton, DrawerContent, DrawerHeader, DrawerOverlay, IconButton, Divider, VStack, HStack, Button, Flex, Center } from "@chakra-ui/react";
+import { Box, Text, Drawer, DrawerBody, DrawerCloseButton, DrawerContent, DrawerHeader, DrawerOverlay, IconButton, Divider, VStack, HStack, Button, Flex, Center, useToast } from "@chakra-ui/react";
 import { FiAlertCircle, FiBell, FiThumbsUp } from "react-icons/fi";
 import { tradeABI } from "@/constants";
 import { GlobalContext } from "@/contexts/global";
@@ -12,6 +12,7 @@ const NotificationDrawer = () => {
     const { address } = useAccount();
     const [isOpen, setIsOpen] = useState(false);
     const [pending, setPending] = useState<any | null>(null);
+    const toast = useToast()
 
 
     const handleToggleDrawer = () => {
@@ -67,6 +68,42 @@ const NotificationDrawer = () => {
     },);
 
 
+    async function CompleteSwap(id: number) {
+        if (!address) {
+            toast({
+                title: "waiting for connection, check your wallet provider",
+                status: "info",
+                duration: 3000
+            })
+            return;
+        }
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+            console.log("Ethereum provider not available");
+            return;
+        }
+        // Initialize ethers provider and contract instances
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const contractAddress = tradeAddress; // Replace with the actual trade contract address
+        const contractAbi = tradeABI; // Replace with the actual trade contract ABI
+        const contract = new ethers.Contract(contractAddress, contractAbi, signer);
+        //now it's time to move
+        const tx = await contract.completeSwap(id, {
+            gasLimit: 5000000,
+        });
+
+        tx.wait();
+        console.log("Matching Trade", tx);
+        toast({
+            title: "Swap successful",
+            status: "success",
+            duration: 30000
+        })
+    }
+
+
+
     return (
         <Box>
             <IconButton
@@ -109,7 +146,7 @@ const NotificationDrawer = () => {
                                                         <FiAlertCircle
                                                         />  <Text ml={2}>Pending Action</Text>
                                                     </Flex>
-                                                    <Text color="whiteAlpha.700" fontSize={"9px"}>Swap ID: {item.id}</Text>
+                                                    <Text color="whiteAlpha.700" fontSize={"9px"}>Swap ID: {parseInt(item.id)}</Text>
                                                 </Box>
 
                                                 <Box>
@@ -146,6 +183,7 @@ const NotificationDrawer = () => {
                                                         background: "#4F81FF",
                                                         color: "white"
                                                     }}
+                                                    onClick={() => CompleteSwap(parseInt(item.id))}
                                                 >Approve</Button>
                                                 {/* <Button
                                             fontSize={"sm"} h="30px"
