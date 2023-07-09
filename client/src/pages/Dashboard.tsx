@@ -37,6 +37,7 @@ const Dashboard = () => {
     const [tokenOptions, setTokenOptions] = useState([{ label: "", value: "" }]);
     const [pending, setPending] = useState<any | null>(null)
 
+
     // const tokenOptions = [
     //     { label: "m_USDC", value: "0x6DA84c226162aBf933c18b5Ca6bC3577584bee86" },
     //     { label: "m_ETH", value: "0xcC8A7e1C88596Cf4e7073343100a4A1fD0eaC8C4" },
@@ -168,27 +169,28 @@ const Dashboard = () => {
         async function fetchSwaps() {
             const pendingSwaps = [];
             const result = await contract.getPendingSwaps(address);
-            for (let i = 0; i < result.length; i++) {
-                const swap = result[i];
-                const pendingSwap = {
-                    id: swap.id.toString(),
-                    initiatorAmount: swap.initiatorAmount.toString(),
-                    counterPartyAmount: swap.counterPartyAmount.toString(),
-                    counterParty: swap.counterParty,
-                    initiator: swap.initiator,
-                    initiatorToken: swap.initiatorToken,
-                    counterPartyToken: swap.counterPartyToken,
-                    completed: swap.completed,
-                };
-                pendingSwaps.push(pendingSwap);
+
+            if (result && result.length > 0) {
+                for (let i = 0; i < result.length; i++) {
+                    const swap = result[i];
+                    const pendingSwap = {
+                        id: swap.id.toString(),
+                        initiatorAmount: swap.initiatorAmount.toString(),
+                        counterPartyAmount: swap.counterPartyAmount.toString(),
+                        counterParty: swap.counterParty,
+                        initiator: swap.initiator,
+                        initiatorToken: swap.initiatorToken,
+                        counterPartyToken: swap.counterPartyToken,
+                        completed: swap.completed,
+                    };
+                    pendingSwaps.push(pendingSwap);
+                    console.log(pendingSwap);
+                    setPending(pendingSwaps);
+                }
             }
 
-            console.log(pendingSwaps);
-            if (result && result.length > 0) {
-                setPending(pendingSwaps);
-            }
         }
-        if (tradeAddress && !pending) {
+        if (address && tradeAddress && !pending) {
             fetchSwaps();
         }
 
@@ -352,7 +354,6 @@ const Dashboard = () => {
                                 mb={5}
                                 right={0}>
                                 <NotificationDrawer
-                                    pending={pending}
                                 />
                             </Box>
                         </Box>
